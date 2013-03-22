@@ -1,0 +1,34 @@
+{
+  "job_name": "IV 56434",
+  "job_id":   56434,
+  "job_email": {
+      {
+          "email":  "lairdm@sfu.ca"
+      },
+      {
+          "email":  "user@emailaddress"
+      }
+  }
+  "components": [
+      {
+        "name": "cvtree",
+        "qsub": "/home/shared/Modules/islandviewer/custom_jobs/56434/cvtree.qsub"
+      },
+      {
+        "name": "sigi",
+        "qsub": "/home/shared/Modules/islandviewer/custom_jobs/56434/sigi.qsub"
+      },
+      {
+        "name": "dimob",
+        "qsub": "/home/shared/Modules/islandviewer/custom_jobs/56434/dimob.qsub"
+      },
+      {
+        "name": "dimob",
+        "qsub": "/home/shared/Modules/islandviewer/custom_jobs/56434/dimob.qsub"
+      },
+      {
+        "name": "summary",
+        "qsub": "/home/shared/Modules/islandviewer/custom_jobs/56434/summary.qsub"
+      }
+  ]
+}
