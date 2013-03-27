@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXIST task (
   task_id int unsigned NOT NULL auto_increment,
   run_status enum('PENDING','COMPLETE','HOLD','ERROR','RUNNING'),
   job_id int unsigned not null,
-  config_type VARCHAR(15) not null,
+  job_type VARCHAR(15) not null,
   extra_parameters VARCHAR(30),
   priority int unsigned default 2,
   submitted_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

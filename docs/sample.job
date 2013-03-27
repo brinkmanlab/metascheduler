@@ -1,14 +1,15 @@
 {
   "job_name": "IV 56434",
   "job_id":   56434,
-  "job_email": {
+  "job_type": "IslandViewer",
+  "job_email": [
       {
           "email":  "lairdm@sfu.ca"
       },
       {
           "email":  "user@emailaddress"
       }
-  }
+  ],
   "components": [
       {
         "name": "cvtree",
