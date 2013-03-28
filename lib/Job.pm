@@ -1,6 +1,6 @@
 =head1 NAME
 
-    Job.pm
+    Brinkman::MetaScheduler::Job
 
 =head1 DESCRIPTION
 
@@ -8,7 +8,7 @@
 
 =head1 SYNOPSIS
 
-    use Job;
+    use Brinkman::MetaScheduler::Job;
 
     # Submitted jobs should always be evaluated in an eval
     # block to catch any errors parsing the JSON
@@ -30,7 +30,7 @@
 
 =cut
 
-package Job;
+package Brinkman::MetaScheduler::Job;
 
 use strict;
 use warnings;
@@ -39,7 +39,7 @@ use Data::Dumper;
 use Moose;
 use Moose::Util::TypeConstraints;
 use Carp qw( confess );
-use DBISingleton;
+use Brinkman::MetaScheduler::DBISingleton;
 
 # Job object
 # Do we need to keep this if it's only a parsing step?
@@ -131,7 +131,7 @@ sub BUILD {
 
     die "Error, you can't have an empty job object";
 
-    my $dbh = DBISingleton->dbh;
+    my $dbh = Brinkman::MetaScheduler::DBISingleton->dbh;
 
     $dbh->do("SELECT SLEEP(10)");
 
@@ -164,6 +164,19 @@ sub read_job {
     }
 
     return 1;
+}
+
+sub _load_job_to_db {
+    my $self = shift;
+    
+    my $dbh = Brinkman::MetaScheduler::DBISingleton->dbh;
+
+    my $sqlstmt = qq{INSERT INTO task (job_id, job_type, job_name, extra_parameters, priority) VALUES (?, ?, ?, ?, ?)};
+    my $insert_task = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
+
+    $sqlstmt = qq{INSERT INTO component (task_id, component_type, extra_parameters, qsub_file) VALUES (?, ?, ?, ?)};
+    my $insert_component = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
+
 }
 
 sub dump {
