@@ -37,25 +37,98 @@ use warnings;
 use JSON;
 use Data::Dumper;
 use Moose;
+use Moose::Util::TypeConstraints;
 use Carp qw( confess );
 use DBISingleton;
 
 # Job object
 my $job;
 
+has task_id => (
+    is     => 'ro',
+    isa    => 'Int'
+);
+
+has run_status => (
+    is     => 'ro',
+    isa    => enum([qw(PENDING COMPLETE HOLD ERROR RUNNING)]) );
+);
+
+has job_id => (
+    is     => 'ro',
+    isa    => 'Int'
+);
+
+has job_type => (
+    is     => 'ro',
+    isa    => 'Str'
+);
+
+has extra_parameters => (
+    is     => 'ro',
+    isa    => 'Str'
+);
+
+has priority => (
+    is     => 'ro',
+    isa    => 'Int'
+);
+
+# Use epoch, which means converting
+# from a mysql timestamp when reading/writing
+# from the database
+# idea: http://search.cpan.org/~doy/Moose-2.0604/lib/Moose/Manual/FAQ.pod#How_can_I_inflate/deflate_values_in_accessors?
+has submitted_date  => (
+    is     => 'ro',
+    isa    => 'Int'
+);
+
+# But how to represent a non started job in epoch?
+# ignore the problem and depend on run_status?
+has start_date  => (
+    is     => 'ro',
+    isa    => 'Int'
+);
+
+has complete_date  => (
+    is     => 'ro',
+    isa    => 'Int'
+);
+
 sub BUILD {
     my $self = shift;
     my $args = shift;
     
     return unless($args->{job});
+    if(($args->{job}) {
+    # First case, we're given a JSON job definition to load
+    # in to the database
+	eval {
+	    $job = decode_json($args->{job});
+	};
+	if($@) {
+	    # Error evaluating job's json
+	    die "Error evaluating job: $args->{job}, $@";
+	}
 
-    eval {
-	$job = decode_json($args->{job});
-    };
-    if($@) {
-	# Error evaluating job's json
-	die "Error evaluating job: $args->{job}, $@";
+	# Validate the submission and load the job in to the database
+
+	return;
+
+    } elsif($args->{task_id}) {
+    # We're pulling a job from the database based on it's
+    # internal task_id
+
+	return;
+
+    } elsif($args->{job_id} && $args->{job_type}) {
+    # We're pulling a job from the database based on it's
+    # external job ID and type
+
+	return;
     }
+
+    die "Error, you can't have an empty job object";
 
     my $dbh = DBISingleton->dbh;
 

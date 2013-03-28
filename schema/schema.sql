@@ -10,12 +10,14 @@ CREATE TABLE IF NOT EXIST task (
   submitted_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   start_date TIMESTAMP NOT NULL,
   complete_date TIMESTAMP NOT NULL,
-  PRIMARY KEY (task_id)
+  PRIMARY KEY (task_id),
+  UNIQUE idx_ext_refs (job_type, job_id)
 );
 
 CREATE TABLE IF NOT EXIST component (
   component_id int unsigned NOT NULL auto_increment,
   task_id int unsigned NOT NULL,
+  component_type varchar(30) NOT NULL,
   run_status enum('PENDING','COMPLETE','HOLD','ERROR','RUNNING'),
   extra_parameters VARCHAR(30),
   qsub_file VARCHAR(100),
