@@ -42,6 +42,7 @@ use Carp qw( confess );
 use DBISingleton;
 
 # Job object
+# Do we need to keep this if it's only a parsing step?
 my $job;
 
 has task_id => (
