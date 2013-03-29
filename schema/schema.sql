@@ -1,5 +1,8 @@
 CREATE DATABASE metascheduler;
 
+GRANT USAGE ON *.* TO 'scheduler'@'%' IDENTIFIED BY PASSWORD '*21AF0E289C82A0CBC5B34B8DF3B14594C09F5C16'
+GRANT SELECT, INSERT, UPDATE, DELETE, LOCK TABLES ON `metascheduler`.* TO 'scheduler'@'%'
+
 CREATE TABLE IF NOT EXIST task (
   task_id int unsigned NOT NULL auto_increment,
   run_status enum('PENDING','COMPLETE','HOLD','ERROR','RUNNING') DEFAULT 'PENDING',
