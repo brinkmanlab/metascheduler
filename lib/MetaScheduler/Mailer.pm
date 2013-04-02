@@ -1,6 +1,6 @@
 =head1 NAME
 
-    Brinkman::MetaScheduler::Mailer
+    MetaScheduler::Mailer
 
 =head1 DESCRIPTION
 
@@ -8,7 +8,7 @@
 
 =head1 SYNOPSIS
 
-    use Mailer;
+    use MetaScheduler::Mailer;
 
 =head1 AUTHOR
 
@@ -23,12 +23,12 @@
 
 =cut
 
-package Brinkman::MetaScheduler::Mailer;
+package MetaScheduler::Mailer;
 
 use strict;
 use warnings;
 use Moose;
-use Brinkman::MetaScheduler::DBISingleton;
+use MetaScheduler::DBISingleton;
 
 has emails => (
     is    => 'ro',
@@ -63,7 +63,7 @@ sub add_email {
     my @emails = @_;
 
     # Add to db and get back mail_id
-    my $dbh = Brinkman::MetaScheduler::DBISingleton->dbh;
+    my $dbh = MetaScheduler::DBISingleton->dbh;
   
     my $sqlstmt = qq{INSERT INTO mail (task_id, email) VALUES (?, ?)};
     my $add_email = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
@@ -96,7 +96,7 @@ sub load_emails {
     my $self = shift;
     my $task_id = shift;
 
-    my $dbh = Brinkman::MetaScheduler::DBISingleton->dbh;
+    my $dbh = MetaScheduler::DBISingleton->dbh;
 
     my $sqlstmt = qq{SELECT mail_id, email, sent, UNIX_TIMESTAMP(sent_date) AS epoch FROM mail WHERE task_id = ?};
     my $fetch_emails =  $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
@@ -129,7 +129,7 @@ sub sent_email {
 
     # Do email sending stuff later
     
-    my $dbh = Brinkman::MetaScheduler::DBISingleton->dbh; 
+    my $dbh = MetaScheduler::DBISingleton->dbh; 
 
     my $task_id = $self->task_id;
     $dbh->do("UPDATE mail SET sent = 1, sent_date = NOW() WHERE task_id = $task_id";

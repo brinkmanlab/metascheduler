@@ -12,11 +12,11 @@ sub mypath { return $path; }
 };
 
 use lib "../lib";
-use Pipeline;
-use Job;
-use DBISingleton;
+use MetaScheduler::Pipeline;
+use MetaScheduler::Job;
+use MetaScheduler::DBISingleton;
 
-my $dbhs = DBISingleton->initialize({dsn => "DBI:mysql:database=metascheduler;host=localhost", user => "scheduler", pass => "sched44%"});
+my $dbhs = MetaScheduler::DBISingleton->initialize({dsn => "DBI:mysql:database=metascheduler;host=localhost", user => "scheduler", pass => "sched44%"});
 
 my $dbh = $dbhs->dbh;
 #my $dbh = DBISingleton->dbh;
@@ -24,7 +24,7 @@ my $dbh = $dbhs->dbh;
 #$dbh->do("SELECT SLEEP(10)");
 #sleep 20;
 
-my $pipeline = Pipeline->new;
+my $pipeline = MetaScheduler::Pipeline->new;
 
 my $res = $pipeline->read_pipeline("/home/lairdm/metascheduler/docs/sample.config");
 print "$res\n";
@@ -37,5 +37,5 @@ my $json;
     $json = <$fh>;
 } 
 
-my $job = Job->new(job => $json);
+my $job = MetaScheduler::Job->new(job => $json);
 $job->dump();

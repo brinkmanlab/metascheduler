@@ -1,4 +1,4 @@
-package Brinkman::MetaScheduler::DBISingleton;
+package MetaScheduler::DBISingleton;
 use MooseX::Singleton;
 use Data::Dumper;
 

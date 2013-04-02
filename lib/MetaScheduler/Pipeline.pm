@@ -1,6 +1,6 @@
 =head1 NAME
 
-    Brinkman::MetaScheduler::Pipeline
+    MetaScheduler::Pipeline
 
 =head1 DESCRIPTION
 
@@ -19,7 +19,7 @@
 
 =cut
 
-package Brinkman::MetaScheduler::Pipeline;
+package MetaScheduler::Pipeline;
 
 use strict;
 use warnings;

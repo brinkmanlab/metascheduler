@@ -1,4 +1,4 @@
-package Brinkman::MetaScheduler::Config;
+package MetaScheduler::Config;
 use MooseX::Singleton;
 
 use strict;
@@ -17,7 +17,7 @@ sub initialize {
 
     my $cfg_file = $args->{cfg_file};
 
-    die "Error, unable to read config file"
+    die "Error, unable to read config file $cfg_file"
 	unless(-f $cfg_file && -r $cfg_file);
 
     my $config = new Config::Simple($cfg_file)->param(-block => 'main');
