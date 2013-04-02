@@ -28,25 +28,34 @@
 package MetaScheduler;
 
 use strict;
-use warnins;
+use warnings;
 use Moose;
 use MetaScheduler::DBISingleton;
 use MetaScheduler::Config;
+use Log::Log4perl;
 
-my $cfg;
+my $cfg; my $logger;
 
 sub BUILD {
     my $self = shift;
     my $args = shift;
 
     # Initialize the configuration file
-    MetaScheduler::Config->initialize({cfg_file = $args->{cfg_file} });
+    MetaScheduler::Config->initialize({cfg_file => $args->{cfg_file} });
     $cfg =  MetaScheduler::Config->config;
 
     # Initialize the DB connection
     MetaScheduler::DBISingleton->initialize({dsn => $cfg->{'dsn'}, 
 					     user => $cfg->{'dbuser'}, 
 					     pass => $cfg->{'dbpass'} });
+
+    my $log_cfg = $cfg->{'logger_conf'};
+    die "Error, can't access logger_conf $log_cfg"
+	unless(-f $log_cfg && -r $log_cfg);
+
+    Log::Log4perl::init($log_cfg);
+    $logger = Log::Log4perl->get_logger;
+
 }
 
 1;

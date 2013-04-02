@@ -3,7 +3,7 @@ CREATE DATABASE metascheduler;
 GRANT USAGE ON *.* TO 'scheduler'@'%' IDENTIFIED BY PASSWORD '*21AF0E289C82A0CBC5B34B8DF3B14594C09F5C16'
 GRANT SELECT, INSERT, UPDATE, DELETE, LOCK TABLES ON `metascheduler`.* TO 'scheduler'@'%'
 
-CREATE TABLE IF NOT EXIST task (
+CREATE TABLE IF NOT EXISTS task (
   task_id int unsigned NOT NULL auto_increment,
   run_status enum('PENDING','COMPLETE','HOLD','ERROR','RUNNING') DEFAULT 'PENDING',
   job_id int unsigned not null,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXIST task (
   UNIQUE idx_ext_refs (job_type, job_id)
 );
 
-CREATE TABLE IF NOT EXIST component (
+CREATE TABLE IF NOT EXISTS component (
   component_id int unsigned NOT NULL auto_increment,
   task_id int unsigned NOT NULL,
   component_type varchar(30) NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXIST component (
   PRIMARY KEY (component_id)
 );
 
-CREATE TABLE IF NOT EXIST mail (
+CREATE TABLE IF NOT EXISTS mail (
   mail_id int unsigned NOT NULL auto_increment,
   task_id int unsigned NOT NULL,
   email varchar(40) NOT NULL,
