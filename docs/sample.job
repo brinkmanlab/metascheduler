@@ -12,24 +12,24 @@
   ],
   "components": [
       {
-        "name": "cvtree",
-        "qsub": "/home/shared/Modules/islandviewer/custom_jobs/56434/cvtree.qsub"
+        "component_type": "cvtree",
+        "qsub_file": "/home/shared/Modules/islandviewer/custom_jobs/56434/cvtree.qsub"
       },
       {
-        "name": "sigi",
-        "qsub": "/home/shared/Modules/islandviewer/custom_jobs/56434/sigi.qsub"
+        "component_type": "sigi",
+        "qsub_file": "/home/shared/Modules/islandviewer/custom_jobs/56434/sigi.qsub"
       },
       {
-        "name": "dimob",
-        "qsub": "/home/shared/Modules/islandviewer/custom_jobs/56434/dimob.qsub"
+        "component_type": "dimob",
+        "qsub_file": "/home/shared/Modules/islandviewer/custom_jobs/56434/dimob.qsub"
       },
       {
-        "name": "dimob",
-        "qsub": "/home/shared/Modules/islandviewer/custom_jobs/56434/dimob.qsub"
+        "component_type": "dimob",
+        "qsub_file": "/home/shared/Modules/islandviewer/custom_jobs/56434/dimob.qsub"
       },
       {
-        "name": "summary",
-        "qsub": "/home/shared/Modules/islandviewer/custom_jobs/56434/summary.qsub"
+        "component_type": "summary",
+        "qsub_file": "/home/shared/Modules/islandviewer/custom_jobs/56434/summary.qsub"
       }
   ]
 }

@@ -23,12 +23,13 @@ CREATE TABLE IF NOT EXISTS component (
   task_id int unsigned NOT NULL,
   component_type varchar(30) NOT NULL,
   run_status enum('PENDING','COMPLETE','HOLD','ERROR','RUNNING') DEFAULT 'PENDING',
-  extra_parameters VARCHAR(30),
-  qsub_file VARCHAR(100),
+  extra_parameters VARCHAR(30) NOT NULL DEFAULT '',
+  qsub_file VARCHAR(100) DEFAULT '',
   qsub_id int unsigned default 0,
-  start_date TIMESTAMP NOT NULL,
-  complete_date TIMESTAMP NOT NULL,
-  PRIMARY KEY (component_id)
+  start_date TIMESTAMP NOT NULL DEFAULT '0000-00-00 00:00:00',
+  complete_date TIMESTAMP NOT NULL DEFAULT '0000-00-00 00:00:00',
+  PRIMARY KEY (component_id),
+  UNIQUE idx_ext_task (task_id, component_type)
 );
 
 CREATE TABLE IF NOT EXISTS mail (

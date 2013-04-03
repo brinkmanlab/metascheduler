@@ -3,6 +3,8 @@
 use warnings;
 use strict;
 use Cwd qw(abs_path getcwd);
+use Getopt::Long;
+use Data::Dumper;
 
 BEGIN{
 # Find absolute path of script
@@ -12,30 +14,36 @@ sub mypath { return $path; }
 };
 
 use lib "../lib";
+use MetaScheduler;
 use MetaScheduler::Pipeline;
-use MetaScheduler::Job;
+#use MetaScheduler::Job;
 use MetaScheduler::DBISingleton;
 
-my $dbhs = MetaScheduler::DBISingleton->initialize({dsn => "DBI:mysql:database=metascheduler;host=localhost", user => "scheduler", pass => "sched44%"});
+MAIN: {
 
-my $dbh = $dbhs->dbh;
-#my $dbh = DBISingleton->dbh;
+    my $cfname;
+    my $res = GetOptions("config=s" => \$cfname
+    );
 
-#$dbh->do("SELECT SLEEP(10)");
-#sleep 20;
+    die "Error, no config file given"
+      unless($cfname);
 
-my $pipeline = MetaScheduler::Pipeline->new;
+    my $metascheduler = MetaScheduler->new({cfg_file => $cfname });
 
-my $res = $pipeline->read_pipeline("/home/lairdm/metascheduler/docs/sample.config");
-print "$res\n";
-$pipeline->dump();
+    my $pipeline = MetaScheduler::Pipeline->new({pipeline => "/home/lairdm/metascheduler/docs/sample.config"});
 
-my $json;
-{
-    local $/; #enable slurp
-    open my $fh, "<", "/home/lairdm/metascheduler/docs/sample.job";
-    $json = <$fh>;
-} 
+#    $pipeline->dump();
 
-my $job = MetaScheduler::Job->new(job => $json);
-$job->dump();
+    print Dumper $pipeline->fetch_component('islandpick');
+
+#my $json;
+#{
+#    local $/; #enable slurp
+#    open my $fh, "<", "/home/lairdm/metascheduler/docs/sample.job";
+#    $json = <$fh>;
+#} 
+
+};
+
+#my $job = MetaScheduler::Job->new(job => $json);
+#$job->dump();
