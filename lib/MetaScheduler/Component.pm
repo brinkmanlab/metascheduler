@@ -122,15 +122,20 @@ sub change_state {
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
 
+    $logger->debug("Changing state for component $args->{component_id} to $args->{state}");
+
     if(uc($args->{state}) eq 'COMPLETE') {
-
+	$dbh->do("UPDATE component SET run_status = \"COMPLETE\", complete_date= NOW() WHERE component_id = $args->{component_id}");
     } elsif(uc($args->{state}) eq 'HOLD') {
-
+	$dbh->do("UPDATE component SET run_status = \"HOLD\" WHERE component_id = $args->{component_id}");
     } elsif(uc($args->{state}) eq 'ERROR') {
-
+	$dbh->do("UPDATE component SET run_status = \"ERROR\", complete_date= NOW() WHERE component_id = $args->{component_id}");
     } elsif(uc($args->{state}) eq 'RUNNING') {
-
+	$dbh->do("UPDATE component SET run_status = \"RUNNING\", start_date= NOW(), qsub_id = $args->{qsub_id} WHERE component_id = $args->{component_id}");
     }
+
+    # Reload the component
+    $self->load_component($args->{component_id});
 }
 
 sub create_component {

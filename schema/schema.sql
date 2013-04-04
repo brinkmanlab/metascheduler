@@ -9,11 +9,11 @@ CREATE TABLE IF NOT EXISTS task (
   job_id int unsigned not null,
   job_type VARCHAR(15) not null,
   job_name VARCHAR(25),
-  extra_parameters VARCHAR(30),
+  extra_parameters VARCHAR(30)  NOT NULL DEFAULT '',
   priority int unsigned default 2,
   submitted_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  start_date TIMESTAMP NOT NULL,
-  complete_date TIMESTAMP NOT NULL,
+  start_date TIMESTAMP NOT NULL DEFAULT '0000-00-00 00:00:00',
+  complete_date TIMESTAMP NOT NULL DEFAULT '0000-00-00 00:00:00',
   PRIMARY KEY (task_id),
   UNIQUE idx_ext_refs (job_type, job_id)
 );
