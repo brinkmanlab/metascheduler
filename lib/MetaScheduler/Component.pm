@@ -122,20 +122,23 @@ sub change_state {
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
 
-    $logger->debug("Changing state for component $args->{component_id} to $args->{state}");
+    $logger->debug("Changing state for component " . $self->component_id . " to $args->{state}");
 
     if(uc($args->{state}) eq 'COMPLETE') {
-	$dbh->do("UPDATE component SET run_status = \"COMPLETE\", complete_date= NOW() WHERE component_id = $args->{component_id}");
+	$dbh->do("UPDATE component SET run_status = \"COMPLETE\", complete_date= NOW() WHERE component_id = ?", {}, $self->component_id);
     } elsif(uc($args->{state}) eq 'HOLD') {
-	$dbh->do("UPDATE component SET run_status = \"HOLD\" WHERE component_id = $args->{component_id}");
+	$dbh->do("UPDATE component SET run_status = \"HOLD\" WHERE component_id = ?", {}, $self->component_id);
     } elsif(uc($args->{state}) eq 'ERROR') {
-	$dbh->do("UPDATE component SET run_status = \"ERROR\", complete_date= NOW() WHERE component_id = $args->{component_id}");
+	$dbh->do("UPDATE component SET run_status = \"ERROR\", complete_date= NOW() WHERE component_id = ?", {}, $self->component_id);
     } elsif(uc($args->{state}) eq 'RUNNING') {
-	$dbh->do("UPDATE component SET run_status = \"RUNNING\", start_date= NOW(), qsub_id = $args->{qsub_id} WHERE component_id = $args->{component_id}");
+	$dbh->do("UPDATE component SET run_status = \"RUNNING\", start_date= NOW(), qsub_id = ? WHERE component_id = ?", {}, $args->{qsub_id}, $self->component_id);
+    } else {
+	$logger->error("State requested for component " . $self->component_id . " of $args->{state} doesn't exist");
+	die "State requested for component " . $self->component_id . " of $args->{state} doesn't exist";
     }
 
     # Reload the component
-    $self->load_component($args->{component_id});
+    $self->load_component($self->component_id);
 }
 
 sub create_component {

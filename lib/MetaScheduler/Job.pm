@@ -34,6 +34,7 @@ package MetaScheduler::Job;
 
 use strict;
 use warnings;
+use Log::Log4perl;
 use JSON;
 use Data::Dumper;
 use Moose;
@@ -41,6 +42,7 @@ use Moose::Util::TypeConstraints;
 use Carp qw( confess );
 use MetaScheduler::DBISingleton;
 use MetaScheduler::Component;
+use MetaScheduler::Mailer;
 
 # Job object
 # Do we need to keep this if it's only a parsing step?
@@ -53,7 +55,7 @@ has task_id => (
 
 has run_status => (
     is     => 'rw',
-    isa    => enum([qw(PENDING COMPLETE HOLD ERROR RUNNING)]) );
+    isa    => enum([qw(PENDING COMPLETE HOLD ERROR RUNNING)])
 );
 
 has job_id => (
@@ -62,6 +64,11 @@ has job_id => (
 );
 
 has job_type => (
+    is     => 'rw',
+    isa    => 'Str'
+);
+
+has job_name => (
     is     => 'rw',
     isa    => 'Str'
 );
@@ -104,12 +111,20 @@ has components => (
     default => sub { [] },
 );
 
+has mailer => (
+    is      => 'rw',
+    isa     => 'Ref',
+);
+
+my $logger;
+
 sub BUILD {
     my $self = shift;
     my $args = shift;
     
-    return unless($args->{job});
-    if(($args->{job}) {
+    $logger = Log::Log4perl->get_logger;
+
+    if($args->{job}) {
     # First case, we're given a JSON job definition to load
     # in to the database
 	eval {
@@ -130,8 +145,10 @@ sub BUILD {
     # We're pulling a job from the database based on it's
     # internal task_id
 
+	$logger->debug("Loading task $args->{task_id}");
 	$self->load_job($args->{task_id});
 	$self->load_components($args->{task_id});
+	$self->load_mailer($args->{task_id});
 	return;
 
     } elsif($args->{job_id} && $args->{job_type}) {
@@ -145,9 +162,10 @@ sub BUILD {
 	$find_task_id->execute($args->{job_id}, $args->{job_type}) or
 	    die "Error fetching task_id ($args->{job_id}, $args->{job_type}): $DBI::errstr";
 
-	if(my $row = $find_task_id->fetchrow_hashref) {
+	if(my @row = $find_task_id->fetchrow_hashref) {
 	    $self->load_job($row[0]);
 	    $self->load_components($row[0]);
+	    $self->load_mailer($row[0]);
 	} else {
 	    $logger->error("Error, can not find task_id for $args->{job_id}, $args->{job_type}");
 	    die "Error, can not find task_id for $args->{job_id}, $args->{job_type}";
@@ -158,6 +176,27 @@ sub BUILD {
 
     die "Error, you can't have an empty job object";
 
+}
+
+sub find_jobs {
+    my $self = shift;
+    my $job_type = shift;
+
+    my $dbh = MetaScheduler::DBISingleton->dbh;
+
+    my $sqlstmt = qq{SELECT task_id, job_id, job_name, run_status FROM task WHERE job_type = ?};
+    my $fetch_jobs =  $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
+
+    $logger->debug("Fetching jobs for job_type $job_type");
+    $fetch_jobs->execute($job_type) or
+	die "Error fetching jobs for job_type $job_type: $DBI::errstr";
+
+    my @jobs;
+    while(my @row = $fetch_jobs->fetchrow_array) {
+	push @jobs, [@row];
+    }
+
+    return \@jobs;
 }
 
 sub read_job {
@@ -190,36 +229,52 @@ sub create_job {
     my $self = shift;
     my $args = shift;
 
-    $logger->debug("Creating and saving job $args->{job_type} for $args->{job_id} $args->{job_name}");
+    $logger->debug("Creating and saving job $args->{job_type} for $args->{job_id}, $args->{job_name}");
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
 
     my $sqlstmt = qq{INSERT INTO task (job_id, job_type, job_name, extra_parameters, priority) VALUES (?, ?, ?, ?, ?)};
     my $add_job = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
-    $add_job->execute($args->{job_id}, $args->{job_type}, $args->{job_name}, $extra_parameters || '', $args->{priority} || "DEFAULT") or
+    $add_job->execute($args->{job_id}, $args->{job_type}, $args->{job_name}, $args->{extra_parameters} || '', $args->{priority} || 2) or
 	die "Error inserting job ($args->{job_id}, $args->{job_type}, $args->{job_name})";
 
     my $task_id = $dbh->last_insert_id( undef, undef, undef, undef );
+    $self->task_id($task_id);
 
     die "Error, no task_id returned ($args->{job_id}, $args->{job_type}, $args->{job_name})"
 	unless($task_id);
 
+    my $c_obj;
     for my $component (@{$args->{components}}) {
 	eval {
 
-	    my $c_obj = MetaScheduler::Component->new({ %$component,
+	    $c_obj = MetaScheduler::Component->new({ %$component,
 							task_id => $task_id
 						      });
 	};
 	if($@) {
-	    $logger->error("We weren't able to make the component $component->{component_type} for task $task_id ($args->{task_type}, $args->{task_name}");
-	    $self->change_state({state => 'FAILED',
+	    $logger->error("We weren't able to make the component $component->{component_type} for task $task_id ($args->{job_type}, $args->{job_name}): $@");
+	    $self->change_state({state => 'ERROR',
 				 task_id => $task_id
 				});
 	    die "Error, can not create component for task $task_id";
 	}
 	push @{ $self->components }, $c_obj;
+    }
+
+    # Create mailer object if it exists
+    if($args->{job_email}) {
+	my @emails;
+	foreach my $email_obj (@{$args->{job_email}}) {
+	    print Dumper $email_obj;
+	    if($email_obj->{email}) {
+	    push @emails, $email_obj->{email};
+	    }
+	}
+
+	print Dumper @emails;
+	$self->add_emails(@emails);
     }
 
     return $task_id;
@@ -231,22 +286,55 @@ sub change_state {
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
 
-    $logger->debug("Changing state for job $args->{task_id} to $args->{state}");
+    if($args->{component_type}) {
 
-    if(uc($args->{state}) eq 'COMPLETE') {
-	$dbh->do("UPDATE task SET run_status = \"COMPLETE\", complete_date= NOW() WHERE task_id = $args->{task_id}");
-    } elsif(uc($args->{state}) eq 'HOLD') {
-	$dbh->do("UPDATE task SET run_status = \"HOLD\" WHERE task_id = $args->{task_id}");
-    } elsif(uc($args->{state}) eq 'ERROR') {
-	$dbh->do("UPDATE task SET run_status = \"ERROR\", complete_date= NOW() WHERE task_id = $args->{task_id}");
-    } elsif(uc($args->{state}) eq 'RUNNING') {
-	$dbh->do("UPDATE task SET run_status = \"RUNNING\", start_date= NOW() WHERE task_id = $args->{task_id}");
+	my $component = $self->find_component($args->{component_type});
+	
+	if($component) {
+	    $logger->debug("Changing state for component, punting on to component object");
+	    $component->change_state($args);
+	} else {
+	    $logger->error("Component $args->{component_type} not found");
+	}
+
+    } else {
+	my $task_id;
+	$logger->debug("Changing state for job " . $self->task_id . " to $args->{state}");
+
+	if(uc($args->{state}) eq 'COMPLETE') {
+	    $dbh->do("UPDATE task SET run_status = \"COMPLETE\", complete_date= NOW() WHERE task_id = ?", {}, $self->task_id);
+	} elsif(uc($args->{state}) eq 'HOLD') {
+	    $dbh->do("UPDATE task SET run_status = \"HOLD\" WHERE task_id = ?", {}, $self->task_id);
+	} elsif(uc($args->{state}) eq 'ERROR') {
+	    $dbh->do("UPDATE task SET run_status = \"ERROR\", complete_date= NOW() WHERE task_id = ?", {}, $self->task_id);
+	} elsif(uc($args->{state}) eq 'RUNNING') {
+	    $dbh->do("UPDATE task SET run_status = \"RUNNING\", start_date= NOW() WHERE task_id = ?", {}, $self->task_id);
+	} else {
+	    $logger->error("State requested for job " . $self->task_id . " of $args->{state} doesn't exist!");
+	    die "State requested for job " . $self->task_id . " of $args->{state} doesn't exist";
+	}
+
+	# Reload the job
+	$self->load_job($self->task_id);
+
     }
 
-    # Reload the job
-    $self->load_job($args->{task_id});
+
 }
 
+sub find_component {
+    my $self = shift;
+    my $component_type = shift;
+
+    foreach my $c (@{$self->components}) {
+	if(lc($c->component_type) eq lc($component_type)) {
+	    return $c;
+	}
+    }
+
+    $logger->debug("Component $component_type not found");
+    return undef;
+}
 
 sub load_job {
     my $self = shift;
@@ -254,7 +342,7 @@ sub load_job {
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
 
-    my $sqlstmt = qq{SELECT run_status, job_id, job_type, job_name, extra_paramters, priority, UNIX_TIMESTAMP(submitted_date) AS submitted_date, UNIX_TMESTAMP(start_date) AS start_date, UNIX_TIMESTAMP(complete_date) AS complete_date FROM task WHERE task_id = ?};
+    my $sqlstmt = qq{SELECT run_status, job_id, job_type, job_name, extra_parameters, priority, UNIX_TIMESTAMP(submitted_date) AS submitted_date, UNIX_TIMESTAMP(start_date) AS start_date, UNIX_TIMESTAMP(complete_date) AS complete_date FROM task WHERE task_id = ?};
     my $fetch_job = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
     $logger->debug("Fetching job $task_id");
@@ -283,27 +371,37 @@ sub load_components {
     foreach my $cid (@components) {
 	my $c = MetaScheduler::Component->new({component_id => $cid });
 
-	push @{ $self->components }, $c_obj;
+	push @{ $self->components }, $c;
     }
 }
 
-sub _load_job_to_db {
+sub load_mailer {
     my $self = shift;
-    
-    my $dbh = MetaScheduler::DBISingleton->dbh;
+    my $task_id = shift;
 
-    my $sqlstmt = qq{INSERT INTO task (job_id, job_type, job_name, extra_parameters, priority) VALUES (?, ?, ?, ?, ?)};
-    my $insert_task = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
+    $logger->debug("Loading mailer object for task $task_id");
+    my $mailer = MetaScheduler::Mailer->new({task_id => $task_id});
 
-    $sqlstmt = qq{INSERT INTO component (task_id, component_type, extra_parameters, qsub_file) VALUES (?, ?, ?, ?)};
-    my $insert_component = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
-
+    $self->mailer($mailer);
 }
 
-sub dump {
-    return unless($job);
+sub add_emails {
+    my $self = shift;
+    my @emails = @_;
 
-    print Dumper $job;
+    return unless(@emails);
+
+    print Dumper @emails;
+
+    if($self->mailer) {
+	$logger->debug("Adding to existing mailer object task_id " . $self->task_id . ", emails @emails");
+	$self->mailer->add_email($self->task_id, @emails);
+    } else {
+	$logger->debug("Creating new mailer object for task_id " .$self->task_id);
+	my $mailer = MetaScheduler::Mailer->new({task_id => $self->task_id, emails => \@emails});
+	$self->mailer($mailer);
+    }
 }
+
 
 1;

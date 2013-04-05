@@ -15,6 +15,7 @@ sub mypath { return $path; }
 
 use lib "../lib";
 use MetaScheduler;
+use MetaScheduler::Job;
 use MetaScheduler::Component;
 use MetaScheduler::DBISingleton;
 
@@ -29,27 +30,34 @@ MAIN: {
 
     my $metascheduler = MetaScheduler->new({cfg_file => $cfname });
 
-    my $component = MetaScheduler::Component->new({component_type => "cvtree",
-						   qsub_file => "/home/shared/Modules/islandviewer/custom_jobs/56434/cvtree.qsub",
-						   task_id => 1,
-						  });
+    my $json;
+    {
+	local $/;; #enable slurp
+	open my $fh, "<", "/home/lairdm/metascheduler/docs/sample.job";
+	$json = <$fh>;
+    }
 
-    my $component_pieces = { component_type => "islandpick",
-			     qsub_file => "/home/shared/Modules/islandviewer/custom_jobs/56434/islandpick.qsub",
-                           };
+    my $job = MetaScheduler::Job->new({job => $json
+					    });
 
-    my $component2 = MetaScheduler::Component->new({ %$component_pieces, 
-						     task_id => 1
-						   });
+    $job->add_emails('lairdm@luther.ca', 'blah@there');
 
-    print $component->dump();
+$job->change_state({state => "RUNNING",
+		    component_type => 'cvtree',
+		    qsub_id => 333
+		   });
+    $job->change_state({state => "RUNNING"});
 
-    my @components = MetaScheduler::Component->find_components(1);
+    print $job->dump();
 
-    print "Components: @components\n";
-    my $cid = shift @components;
+    my $task_id = $job->task_id;
+    print "Task_id $task_id\nReloading\n";
 
-    my $component3 = MetaScheduler::Component->new({component_id => $cid });
+    my $job2 = MetaScheduler::Job->new({task_id => $task_id});
 
-    print $component3->dump();
+    print $job2->dump();
+
+    my $jobs = MetaScheduler::Job->find_jobs('IslandViewer');
+
+    print Dumper $jobs;
 };
