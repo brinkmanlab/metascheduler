@@ -16,7 +16,7 @@ sub mypath { return $path; }
 use lib "../lib";
 use MetaScheduler;
 use MetaScheduler::Pipeline;
-#use MetaScheduler::Job;
+use MetaScheduler::Job;
 use MetaScheduler::DBISingleton;
 
 MAIN: {
@@ -35,6 +35,16 @@ MAIN: {
 #    $pipeline->dump();
 
     print Dumper $pipeline->fetch_component('islandpick');
+
+    my $jobs = MetaScheduler::Job->find_jobs('IslandViewer');
+
+    my $task_id = pop @{$jobs};
+    print "Loading task $task_id->[0]\n";
+
+my $job = MetaScheduler::Job->new({task_id => $task_id->[0]});
+
+$pipeline->attach_job($job);
+$pipeline->dump_graph;
 
 #my $json;
 #{

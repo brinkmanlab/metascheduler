@@ -104,7 +104,7 @@ sub find_components {
     my $sqlstmt = qq{SELECT component_id FROM component WHERE task_id = ?};
     my $fetch_components =  $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
-    $logger->debug("Fetching components for task_id $task_id");
+#    $logger->debug("Fetching components for task_id $task_id");
     $fetch_components->execute($task_id);
 
     my @components;

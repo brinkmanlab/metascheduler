@@ -187,7 +187,7 @@ sub find_jobs {
     my $sqlstmt = qq{SELECT task_id, job_id, job_name, run_status FROM task WHERE job_type = ?};
     my $fetch_jobs =  $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
-    $logger->debug("Fetching jobs for job_type $job_type");
+#    $logger->debug("Fetching jobs for job_type $job_type");
     $fetch_jobs->execute($job_type) or
 	die "Error fetching jobs for job_type $job_type: $DBI::errstr";
 
@@ -320,6 +320,20 @@ sub change_state {
     }
 
 
+}
+
+sub find_component_state {
+    my $self = shift;
+    my $component_type = shift;
+
+    my $c = $self->find_component($component_type);
+
+    if($c) {
+	return $c->run_status;
+    } else {
+	$logger->("Error, can't find component $component_type when checking state");
+	return undef;
+    }
 }
 
 sub find_component {
