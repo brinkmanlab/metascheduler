@@ -24,4 +24,23 @@
 
 =cut
 
+package MetaScheduler::Torque;
+
+use strict;
+use warnings;
+use Log::Log4perl;
+use MooseX::Singleton;
+use MetaScheduler::Torque::QStat;
+
+my $logger;
+
+sub initialize {
+    my $self = shift;
+
+    $logger = Log::Log4perl->get_logger;
+
+    MetaScheduler::Torque::QStat->initialize;
+}
+
+
 1;

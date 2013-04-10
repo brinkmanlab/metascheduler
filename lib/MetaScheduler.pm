@@ -30,8 +30,12 @@ package MetaScheduler;
 use strict;
 use warnings;
 use Moose;
+use Data::Dumper;
 use MetaScheduler::DBISingleton;
 use MetaScheduler::Config;
+#use MetaScheduler::Torque;
+#use MetaScheduler::Torque::QStat;
+use Scalar::Util 'reftype';
 use Log::Log4perl;
 
 my $cfg; my $logger;
@@ -55,6 +59,23 @@ sub BUILD {
 
     Log::Log4perl::init($log_cfg);
     $logger = Log::Log4perl->get_logger;
+
+    # Initialize the schedulers we're using
+    if(reftype $cfg->{schedulers} eq 'ARRAY') {
+	foreach (@{$cfg->{schedulers}}) {
+	    require "MetaScheduler/$_.pm";
+	    "MetaScheduler::$_"->initialize();
+	}
+    } else {
+	my $scheduler = $cfg->{schedulers};
+	{
+	    no strict 'refs';
+	    require "MetaScheduler/$scheduler.pm";
+	    "MetaScheduler::$scheduler"->initialize();
+	}
+    }
+
+#    MetaScheduler::Torque->initialize();
 
 }
 
