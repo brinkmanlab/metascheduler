@@ -9,6 +9,20 @@ use MetaScheduler::Config;
 
 my $logger;
 
+has 'state' => (
+    traits => ['Hash'],
+    is     => 'ro',
+    isa    => 'HashRef',
+    default => sub { { 'C' => "Complete",
+		 'E' => "Exited",
+		 'H' => "Hold",
+		 'Q' => 'Queued',
+		 'R' => 'Running',
+		 'T' => 'Transfer',
+		 'W' => 'Waiting',
+		 'S' => 'Suspended' }}
+);
+
 has 'jobs' => (
     traits => ['Hash'],
     is     => 'rw',
@@ -35,6 +49,19 @@ sub initialize {
 
     $self->parse_qstat;
 
+}
+
+sub poll {
+    my $self = shift;
+    my $job_id = shift;
+
+    $self->refresh;
+
+    my $job = $self->fetch($job_id);
+
+    return undef unless($job);
+
+    return $job->{job_state};
 }
 
 sub refresh {
