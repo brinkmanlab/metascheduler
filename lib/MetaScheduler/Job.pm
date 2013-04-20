@@ -137,7 +137,10 @@ sub BUILD {
 
 	# Validate the submission and load the job in to the database
 
-	$self->load_job($self->create_job($job));
+	$self->task_id($self->create_job($job));
+	$self->load_job($self->task_id);
+	$self->load_components($self->task_id);
+	$self->load_mailer($self->task_id);
 
 	return;
 
