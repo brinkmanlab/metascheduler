@@ -41,6 +41,7 @@ use Moose;
 use Moose::Util::TypeConstraints;
 use Carp qw( confess );
 use MetaScheduler::DBISingleton;
+use MetaScheduler::Config;
 use MetaScheduler::Component;
 use MetaScheduler::Mailer;
 
@@ -116,13 +117,15 @@ has mailer => (
     isa     => 'Ref',
 );
 
-my $logger;
+my $logger; my $cfg;
 
 sub BUILD {
     my $self = shift;
     my $args = shift;
     
     $logger = Log::Log4perl->get_logger;
+
+    $cfg =  MetaScheduler::Config->config;
 
     if($args->{job}) {
     # First case, we're given a JSON job definition to load
@@ -141,6 +144,7 @@ sub BUILD {
 	$self->load_job($self->task_id);
 	$self->load_components($self->task_id);
 	$self->load_mailer($self->task_id);
+	$self->makeWorkdir();
 
 	return;
 
@@ -152,6 +156,8 @@ sub BUILD {
 	$self->load_job($args->{task_id});
 	$self->load_components($args->{task_id});
 	$self->load_mailer($args->{task_id});
+	$self->makeWorkdir();
+
 	return;
 
     } elsif($args->{job_id} && $args->{job_type}) {
@@ -169,6 +175,8 @@ sub BUILD {
 	    $self->load_job($row[0]);
 	    $self->load_components($row[0]);
 	    $self->load_mailer($row[0]);
+	    $self->makeWorkdir();
+
 	} else {
 	    $logger->error("Error, can not find task_id for $args->{job_id}, $args->{job_type}");
 	    die "Error, can not find task_id for $args->{job_id}, $args->{job_type}";
@@ -420,5 +428,13 @@ sub add_emails {
     }
 }
 
+sub makeWorkdir {
+    my $self = shift;
+    
+    unless( -d  $cfg->{jobs_dir} . '/' . $self->task_id ) {
+	mkdir $cfg->{jobs_dir} . '/' . $self->task_id
+	    or die "Error making workdir for " . $self->task_id . " : $@";
+    }
+}
 
 1;

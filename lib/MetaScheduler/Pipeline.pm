@@ -26,11 +26,15 @@ use warnings;
 use JSON;
 use Data::Dumper;
 use Log::Log4perl;
+use MetaScheduler::Config;
 use Graph::Directed;
 use Moose;
+use GraphViz2;
+use Switch;
 
 my $pipeline;
 my $logger;
+my $cfg;
 my $g;
 my $job;
 
@@ -39,6 +43,8 @@ sub BUILD {
     my $args = shift;
 
     $logger = Log::Log4perl->get_logger;
+
+    $cfg =  MetaScheduler::Config->config;
 
     die "Error, no pipeline file given" unless($args->{pipeline});
 
@@ -265,6 +271,77 @@ sub fetch_component {
     }
 
     return 0;
+}
+
+sub graph {
+    my $self = shift;
+    my $fields = shift;
+
+    # We can do a graph unless we have a job attached
+    return unless($job);
+
+    my $gv = GraphViz2->new(global => {directed => 1});
+
+    foreach my $v ($g->vertices) {
+	$self->graph_node($gv, $v, $fields);
+#	$gv->add_node(name => $v);
+    }
+
+    foreach my $e ($g->edges) {
+	if($g->has_edge_attribute($e->[0], $e->[1], 'success') && $g->has_edge_attribute($e->[0], $e->[1], 'failure')) {
+	    $gv->add_edge(from => $e->[0], to => $e->[1]);
+	} elsif($g->has_edge_attribute($e->[0], $e->[1], 'success')) {
+	    $gv->add_edge(from => $e->[0], to => $e->[1], color => 'green', label => 'on success');
+	} elsif($g->has_edge_attribute($e->[0], $e->[1], 'failure')) {
+	    $gv->add_edge(from => $e->[0], to => $e->[1], color => 'red', label => 'on failure');
+	}
+    }
+
+    $gv->run(format => 'svg', output_file => $cfg->{jobs_dir} . '/' . $job->task_id . '/' . "graph.svg");
+}
+
+sub graph_node {
+    my $self = shift;
+    my $gv = shift;
+    my $v = shift;
+    my $fields = shift;
+
+    my $c;
+
+    return unless($c = $job->find_component($v));
+
+    print Dumper MetaScheduler::Component->meta->get_attribute_list;
+
+    my $colour;
+    switch($c->run_status) {
+	case "PENDING"   {$colour = "yellow"}
+	case "COMPLETE"  {$colour = "grey"}
+	case "HOLD"      {$colour = "blue"}
+	case "ERROR"     {$colour = "red"}
+	case "RUNNING"   {$colour = "green"}
+    }
+
+    my $label = "<<TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"0\"><TR><TD PORT=\"f0\" bgcolor=\"$colour\"><B>$v</B></TD></TR>";
+    my $port = 1;
+    foreach my $field (@{$cfg->{graph_fields}}) {
+	if($field =~ /date$/) {
+	    next unless($c->$field);
+	    $label .= "<TR><TD PORT=\"f$port\">$field: ". scalar localtime($c->$field) . "</TD></TR>";
+	} else {
+	    $label .= "<TR><TD PORT=\"f$port\">$field: ". $c->$field . "</TD></TR>";
+	}
+	$port++;
+    }
+    $label .= "</TABLE>>";
+    $gv->add_node(name => $v, shape => 'record', label => $label);
+
+#    $gv->add_node(name => $v, shape => 'record', color => $colour, label => [$v, join('\l', map{$i++; "$_ $i : " . $c->$_} MetaScheduler::Component->meta->get_attribute_list) . '\l']);
+#    my $i = 1;
+#    $gv->add_node(name => $v, shape => 'record', color => $colour, label => "<<TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"0\"><TR><TD PORT=\"f1\" bgcolor=\"$colour\"><B>title</B></TD></TR><TR><TD PORT=\"f2\">index</TD></TR><TR><TD PORT=\"f3\">field1</TD></TR><TR><TD PORT=\"f4\">field2</TD></TR></TABLE>>");
+#$v, join('\l', map{$i++; "$_ $i : " . $c->$_} MetaScheduler::Component->meta->get_attribute_list) . '\l']);
+#    $gv->add_node(name => $v, shape => 'record', color => $colour, label => [$v, $c->run_status]);
+
+    
 }
 
 sub dump_graph {
