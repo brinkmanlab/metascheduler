@@ -84,6 +84,11 @@ has priority => (
     isa    => 'Int'
 );
 
+has job_scheduler => (
+    is      => 'rw',
+    isa     => 'Str',
+);
+
 # Use epoch, which means converting
 # from a mysql timestamp when reading/writing
 # from the database
@@ -244,10 +249,10 @@ sub create_job {
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
 
-    my $sqlstmt = qq{INSERT INTO task (job_id, job_type, job_name, extra_parameters, priority) VALUES (?, ?, ?, ?, ?)};
+    my $sqlstmt = qq{INSERT INTO task (job_id, job_type, job_name, job_scheduler, extra_parameters, priority) VALUES (?, ?, ?, ?, ?)};
     my $add_job = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
-    $add_job->execute($args->{job_id}, $args->{job_type}, $args->{job_name}, $args->{extra_parameters} || '', $args->{priority} || 2) or
+    $add_job->execute($args->{job_id}, $args->{job_type}, $args->{job_name}, $args->{job_scheduler} || 'Torque', $args->{extra_parameters} || '', $args->{priority} || 2) or
 	die "Error inserting job ($args->{job_id}, $args->{job_type}, $args->{job_name})";
 
     my $task_id = $dbh->last_insert_id( undef, undef, undef, undef );
@@ -367,7 +372,7 @@ sub load_job {
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
 
-    my $sqlstmt = qq{SELECT run_status, job_id, job_type, job_name, extra_parameters, priority, UNIX_TIMESTAMP(submitted_date) AS submitted_date, UNIX_TIMESTAMP(start_date) AS start_date, UNIX_TIMESTAMP(complete_date) AS complete_date FROM task WHERE task_id = ?};
+    my $sqlstmt = qq{SELECT run_status, job_id, job_type, job_name, job_scheduler, extra_parameters, priority, UNIX_TIMESTAMP(submitted_date) AS submitted_date, UNIX_TIMESTAMP(start_date) AS start_date, UNIX_TIMESTAMP(complete_date) AS complete_date FROM task WHERE task_id = ?};
     my $fetch_job = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
     $logger->debug("Fetching job $task_id");

@@ -103,6 +103,8 @@ sub initializeMetaScheduler {
     my $self = shift;
     
     $self->loadJobs();
+
+    # 
 }
 
 sub loadJobs {
@@ -124,6 +126,7 @@ sub loadJobs {
 	    $pipeline = MetaScheduler::Pipeline->new({pipeline => $pipeline_base . '/' . lc($row[1]) . '.config'});
 	    $job = MetaScheduler::Job->new({task_id => $row[0]});
 	    $pipeline->attach_job($job);
+	    $pipeline->validate_state();
 	    $pipeline->graph();
 	};
 

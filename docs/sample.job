@@ -2,6 +2,7 @@
   "job_name": "IV 56438",
   "job_id":   56438,
   "job_type": "IslandViewer",
+  "job_scheduler": "Torque",
   "job_email": [
       {
           "email":  "lairdm@sfu.ca"

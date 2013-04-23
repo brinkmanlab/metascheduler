@@ -42,5 +42,10 @@ sub initialize {
     MetaScheduler::Torque::QStat->initialize;
 }
 
+sub instance {
+    my $self = shift;
+
+    return $self;
+}
 
 1;

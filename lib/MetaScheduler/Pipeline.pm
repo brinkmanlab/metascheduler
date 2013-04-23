@@ -30,11 +30,13 @@ use MetaScheduler::Config;
 use Graph::Directed;
 use Moose;
 use GraphViz2;
-use Switch;
+#use Switch;
+use feature qw{ switch };
 
 my $pipeline;
 my $logger;
 my $cfg;
+my $scheduler;
 my $g;
 my $job;
 
@@ -93,6 +95,9 @@ sub build_tree {
 	$self->add_edges($name, $component->{on_failure}, 'failure')
 	    if($component->{on_failure});
 
+	# Save the meta information like status_test
+	# to the node for referencing later
+	$g->set_vertex_attribute($name, "status_test", $component->{status_test});
     }
     
     unless($g->is_dag()) {
@@ -106,6 +111,24 @@ sub build_tree {
     }
 
     print "Graph:\n$g\n";
+
+}
+
+# This will scan through an attached job
+# and validate the states for components 
+# ie. is a component really running as the database/object says
+# It does this through using the status_test field
+# It will update the state of a component if it finds the 
+# listed state is incorrect
+
+sub validate_state {
+    my $self = shift;
+
+    foreach my $v ($g->verticies) {
+	my $c = $job->find_component($v);
+
+	
+    }
 
 }
 
@@ -134,6 +157,11 @@ sub attach_job {
     $job = shift;
 
     $self->overlay_job;
+
+    my $sched = $job->job_scheduler;
+    # will this work?
+    # $scheduler = "MetaScheduler::$job->job_scheduler"->instance();
+    $scheduler = "MetaScheduler::$sched"->instance();
 }
 
 # We call this each time the scheduler wants to give the
@@ -313,12 +341,12 @@ sub graph_node {
     print Dumper MetaScheduler::Component->meta->get_attribute_list;
 
     my $colour;
-    switch($c->run_status) {
-	case "PENDING"   {$colour = "yellow"}
-	case "COMPLETE"  {$colour = "grey"}
-	case "HOLD"      {$colour = "blue"}
-	case "ERROR"     {$colour = "red"}
-	case "RUNNING"   {$colour = "green"}
+    given($c->run_status) {
+	when ("PENDING")   {$colour = "yellow"}
+	when ("COMPLETE")  {$colour = "grey"}
+	when ("HOLD")      {$colour = "blue"}
+	when ("ERROR")     {$colour = "red"}
+	when ("RUNNING")   {$colour = "green"}
     }
 
     my $label = "<<TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"0\"><TR><TD PORT=\"f0\" bgcolor=\"$colour\"><B>$v</B></TD></TR>";
