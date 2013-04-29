@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 use warnings;
 use strict;
@@ -41,5 +41,7 @@ print "Dumping job:\n";
 #print Dumper 
 my $job = MetaScheduler::Torque::QStat->fetch("11526266.b0");
 print Dumper $job;
+
+print "Job state: " .  MetaScheduler::Torque->fetch_job_state("11526266.b0") . "\n";
 }
 

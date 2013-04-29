@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS task (
   job_name VARCHAR(25),
   extra_parameters VARCHAR(30)  NOT NULL DEFAULT '',
   priority int unsigned default 2,
-  scheduler VARCHAR(15) NOT NULL,
+  job_scheduler VARCHAR(15) NOT NULL,
   submitted_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   start_date TIMESTAMP NOT NULL DEFAULT '0000-00-00 00:00:00',
   complete_date TIMESTAMP NOT NULL DEFAULT '0000-00-00 00:00:00',

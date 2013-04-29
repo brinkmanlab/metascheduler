@@ -125,6 +125,9 @@ sub parse_record {
 
     my @lines = split "\n", $qstat_rec;
 
+    # Remove leading and trailing spaces
+    s{^\s+|\s+$}{}g foreach @lines;
+
     my ($jobid) = (shift @lines) =~ /Job Id: (.+)$/;
 
     chomp (%$job = map { split /\s*=\s*/,$_,2 } grep (!/^$/,@lines));

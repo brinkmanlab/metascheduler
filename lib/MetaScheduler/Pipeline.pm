@@ -124,11 +124,94 @@ sub build_tree {
 sub validate_state {
     my $self = shift;
 
-    foreach my $v ($g->verticies) {
+    vertex: foreach my $v ($g->vertices) {
 	my $c = $job->find_component($v);
 
-	
+	$logger->debug("Evaluating state for task " . $job->task_id . " component $v");
+
+	unless($c) {
+	    $logger->error("Error, we can't find component $v in job " . $job->task_id);
+	    next vertex;
+	}
+
+	# Fetch the status we think the job is
+	my $state = $job->find_component_state($v);
+
+	# We only care if we think it's running
+	next vertex unless($state eq 'RUNNING');
+	$logger->debug("Component $v for task " . $job->task_id . " is RUNNING, validating");
+
+	# Check the scheduler to see if the job is there
+	my $sched_state = $scheduler->fetch_job_state($c->qsub_id);
+	$logger->debug("Scheduler says component $v is in state $sched_state");
+
+	my $test_state;
+	given($sched_state) {
+	    # This means it's no longer in the scheduler
+	    # we need to depend on the status_test to see
+	    # what happened
+	    when ("UNKNOWN")    { $test_state = $self->confirm_state($v); }
+	    # It's in the scheduler waiting for something,
+	    # in this context treat this as running,
+	    # we're just waiting
+	    when ("HOLD")       { next vertex; }
+	    # It's done, now we need to use the status_test
+	    # to see what happened
+	    when ("COMPLETE")   { $test_state = $self->confirm_state($v); }
+	    # In this context treat this as running since
+	    # we're simply waiting
+	    when ("PENDING")    { next vextex; }
+	    # If it's happily running we'll leave it be
+	    when ("RUNNING")    { next vertex; }
+	}
+
+	# Now we have to deal with jobs that have exited the scheduler
+	# and what their current state actually is, did it succeed,
+	# fail, or die silently?
+	$logger->debug("Setting state for job " . $job->task_id . " to $test_state");
+	given($test_state) {
+	    when ("COMPLETE")   { $job->change_state({component_type => $v,
+						      state => 'COMPLETE' }); }
+	    when ("ERROR")      { $job->change_state({component_type => $v,
+						      state => 'ERROR' }); }
+	    when ("RUNNING")    { $job->change_state({component_type => $v,
+						      state => 'ERROR' }); }
+	}
     }
+
+}
+
+# For an individual component, confirm the state
+# using the status_test script. Update it's status as needed
+
+sub confirm_state {
+    my $self = shift;
+    my $c = shift;
+
+    return undef unless($g->has_vertex($c));
+
+    my $cmd = $g->get_vertex_attribute($c, 'status_test');
+
+
+    $cmd =~ s/\%\%jobid\%\%/$job->job_id/e;
+    $logger->debug("Running command $cmd to check state of job " . $job->task_id);
+
+    my $rv = system($cmd);
+
+    if($rv == -1) {
+	$logger->error("Failed to execute $cmd for job " . $job->task_id);
+	return "ERROR";
+       
+    } elsif($rv & 4) {
+	$logger->debug("Task " . $job->task_id . " completed with an error");
+	return "ERROR";
+    } elsif($rv & 8) {
+	$logger->debug("Task " . $job->task_id . " seems to still be running");
+	return "RUNNING";
+    }
+
+    $logger->debug("Task " . $job->task_id . " seems to have completed successfully");
+    return "COMPLETE";
 
 }
 

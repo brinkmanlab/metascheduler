@@ -31,6 +31,8 @@ use warnings;
 use Log::Log4perl;
 use MooseX::Singleton;
 use MetaScheduler::Torque::QStat;
+use feature qw{ switch };
+use Data::Dumper;
 
 my $logger;
 
@@ -46,6 +48,32 @@ sub instance {
     my $self = shift;
 
     return $self;
+}
+
+sub fetch_job {
+    my $self = shift;
+    my $job_id = shift;
+
+    return MetaScheduler::Torque::QStat->fetch($job_id);
+}
+
+sub fetch_job_state {
+    my $self = shift;
+    my $job_id = shift;
+
+    my $job = MetaScheduler::Torque::QStat->fetch($job_id);
+
+    return 'UNKNOWN' unless($job);
+
+    given($job->{job_state}) {
+	when ("E")    { return "COMPLETE" }
+	when ("H")    { return "HOLD" }
+	when ("Q")    { return "PENDING" }
+	when ("R")    { return "RUNNING" }
+	when ("T")    { return "RUNNING" }
+	when ("W")    { return "PENDING" }
+	when ("S")    { return "HOLD" }
+    }
 }
 
 1;

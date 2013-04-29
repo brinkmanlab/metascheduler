@@ -64,7 +64,7 @@ has qsub_file => (
 
 has qsub_id => (
     is     => 'rw',
-    isa    => 'Int'
+    isa    => 'Str'
 );
 
 has start_date  => (

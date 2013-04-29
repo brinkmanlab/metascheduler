@@ -1,0 +1,10 @@
+The status_test may return the following statuses, the script itself will only ever be run when the component is in the RUNNING state and will be used to tell if the component is still running, succeeded or failed.  
+
+Error codes:
+0 - success, completed
+4 - failed, completed
+8 - started/pending (optional)
+
+Typically the status_test script will only be called when the system's scheduler (eg Torque) has lost track of the job (it finished/died futher ago than the acount of time completed jobs are kept in the queue) or when a job finishes and it's not obvious to the scheduler if it succeeded or failed.
+
+For this reason "started" will be taken a failed, this optional state is just used to making a note in the logs about jobs that have possibily silently died.
