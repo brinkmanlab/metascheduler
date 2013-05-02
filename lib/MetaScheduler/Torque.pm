@@ -31,6 +31,7 @@ use warnings;
 use Log::Log4perl;
 use MooseX::Singleton;
 use MetaScheduler::Torque::QStat;
+use MetaScheduler::Torque::QSub;
 use feature qw{ switch };
 use Data::Dumper;
 
@@ -42,6 +43,7 @@ sub initialize {
     $logger = Log::Log4perl->get_logger;
 
     MetaScheduler::Torque::QStat->initialize;
+    MetaScheduler::Torque::QSub->initialize();
 }
 
 sub instance {
@@ -74,6 +76,14 @@ sub fetch_job_state {
 	when ("W")    { return "PENDING" }
 	when ("S")    { return "HOLD" }
     }
+}
+
+sub submit_job {
+	my $self = shift;
+	my $name = shift;
+	my $qsub_file = shift;
+	
+	MetaScheduler::Torque::QSub->submit_job($name, $qsub_file);
 }
 
 1;

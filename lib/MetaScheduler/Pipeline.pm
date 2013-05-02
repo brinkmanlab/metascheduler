@@ -215,6 +215,26 @@ sub confirm_state {
 
 }
 
+sub run_component {
+    my $self = shift;
+    my $ctype = shift;
+
+    # We can't run on a pipeline with no job attached
+    return undef unless($job);
+
+    my $c = $job->fetch_component($ctype);
+    unless($c) {
+	$logger->error("Component $ctype not found in job " . $job->task_id . " can't start");
+	return undef;
+    }
+
+    $logger->debug("Starting component $ctype for job " . $job->task_id);
+    
+    # Send the start request to the scheduler object
+    # Name it with the task_id+component_type
+    my $sched_id = $scheduler->submit_job($job->task_id . "_$ctype", $c->qsub_file);
+}
+
 sub add_edges {
     my ($self, $origin, $vertices, $label) = @_;
 

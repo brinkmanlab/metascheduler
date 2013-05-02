@@ -45,7 +45,7 @@ MAIN: {
     print Dumper $emails;
 
     $mailer = MetaScheduler::Mailer->new({task_id => 1});
-    my $emails = $mailer->fetch_emails;
+    $emails = $mailer->fetch_emails;
     print Dumper $emails;
 
     $mailer->send_email({ from => 'metascheduler-mailer@brinkman.sfu.ca', 
