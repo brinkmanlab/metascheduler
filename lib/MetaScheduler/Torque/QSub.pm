@@ -15,6 +15,9 @@ sub initialize {
 
 }
 
+# Submit a job to the scheduler, return
+# the scheduler id (qsub_id), -1 if submission failed
+
 sub submit_job {
 	my $self = shift;
 	my $name = shift;
@@ -24,7 +27,8 @@ sub submit_job {
 	
 	my $cmd = $config->{torque_qsub};
 	
-	
+	# Prefix job name with MetaScheduler_
+	# so we can fish them out in QStat
 }
 
 1;

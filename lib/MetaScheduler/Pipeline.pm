@@ -124,6 +124,11 @@ sub build_tree {
 sub validate_state {
     my $self = shift;
 
+    unless($g) {
+	$logger->error("Error, no job seems to be attached to this task, can't validate");
+	die "Error, no job seems to be attached to this task, can't validate";
+    }
+
     vertex: foreach my $v ($g->vertices) {
 	my $c = $job->find_component($v);
 
@@ -233,6 +238,19 @@ sub run_component {
     # Send the start request to the scheduler object
     # Name it with the task_id+component_type
     my $sched_id = $scheduler->submit_job($job->task_id . "_$ctype", $c->qsub_file);
+
+    # Did the task submit successfully?
+    if($sched_id > 0) {
+	# Update the assigned scheduler task number in the component
+	$job->change_state({state => "RUNNING",
+			    component_type => $ctype,
+			    qsub_id => $sched_id
+			   });
+    } else {
+	# We couldn't submit the job to the scheduler, hold the job for review
+	$logger->error("Error, can not submit component $ctype to scheduler for job " . $job->task_id . ", holding job");
+	$job->change_state({state => "HOLD"});
+    }
 }
 
 sub add_edges {
@@ -271,7 +289,17 @@ sub attach_job {
 # job a turn to run a step
 
 sub run_iteration {
-    
+    my $self = shift;
+
+    # We can't run an iteration if there's no job attached
+    unless($job && $g) {
+	$logger->error("Error, can't run an iteration on pipeline, nob job attached");
+	die "Error, can't run an iteration on pipeline, nob job attached";
+    }
+
+    # Before we begin an iteration, validate the state of the job
+    $self->validate_state();
+
 }
 
 sub overlay_job {

@@ -141,6 +141,20 @@ sub change_state {
     $self->load_component($self->component_id);
 }
 
+sub set_sched_id {
+    my $self = shift;
+    my $sched_id = shift;
+
+    my $dbh = MetaScheduler::DBISingleton->dbh;
+
+    $logger->debug("Changing sched_id (qsub_id) for component " . $self->component_id . " to $sched_id");
+
+    $dbh->do("UPDATE component SET qsub_id = ? WHERE component_id = ?", {}, $sched_id, $self->component_id);
+
+    # Reload the component
+    $self->load_component($self->component_id);
+}
+
 sub create_component {
     my $self = shift;
     my $args = shift;

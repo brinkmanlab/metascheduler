@@ -135,6 +135,9 @@ sub parse_record {
 #    print "Job: $jobid\n";
 #    print Dumper $job;
 
+    # We want to parse out jobs that aren't ours
+    return unless($job->{Job_Name} =~ /^MetaScheduler/);
+
     $self->set_job($jobid => $job);
 }
 

@@ -22,6 +22,14 @@
 
     April 4, 2013
 
+=todo
+
+Purge completed jobs older than x hours/days?
+Job counter, qstat should fill in stats about # of jobs in each running
+state, function to say is there any spare room to submit a new job
+according to the max jobs in the config file, and when submitting a job the
+running job counter should increment.
+
 =cut
 
 package MetaScheduler::Torque;
@@ -78,12 +86,16 @@ sub fetch_job_state {
     }
 }
 
+# Submit a job to the scheduler, return
+# the scheduler id (qsub_id), -1 if submission failed,
+# 0 if there's no additional job capacity available
+
 sub submit_job {
 	my $self = shift;
 	my $name = shift;
 	my $qsub_file = shift;
 	
-	MetaScheduler::Torque::QSub->submit_job($name, $qsub_file);
+	return MetaScheduler::Torque::QSub->submit_job($name, $qsub_file);
 }
 
 1;
