@@ -94,8 +94,17 @@ sub submit_job {
 	my $self = shift;
 	my $name = shift;
 	my $qsub_file = shift;
+	my $job_dir = shift;
 	
-	return MetaScheduler::Torque::QSub->submit_job($name, $qsub_file);
+	return MetaScheduler::Torque::QSub->submit_job($name, $qsub_file, $job_dir);
+}
+
+# See if there's room for more jobs
+
+sub scheduler_full {
+    my $self = shift;
+
+    return MetaScheduler::Torque::QSub->scheduler_full();
 }
 
 1;

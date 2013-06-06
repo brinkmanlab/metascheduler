@@ -3,6 +3,7 @@ package MetaScheduler::Torque::QStat;
 use strict;
 use warnings;
 use Data::Dumper;
+use Date::Parse;
 use Log::Log4perl;
 use MooseX::Singleton;
 use MetaScheduler::Config;
@@ -33,8 +34,24 @@ has 'jobs' => (
           get_job     => 'get',
           delete_job  => 'delete',
 	  clear_jobs  => 'clear',
+	  job_pairs   => 'kv',
+	  num_jobs    => 'count',
       },
 
+);
+
+has 'stats' => (
+    traits => ['Hash'],
+    is     => 'rw',
+    isa    => 'HashRef',
+    default  => sub { {} },
+    handles  => {
+	set_stat    => 'set',
+	get_stat    => 'get',
+	delete_stat => 'delete',
+	clear_stats => 'clear',
+	stat_pairs  => 'kv',
+      },
 );
 
 has 'last_update' => (
@@ -73,7 +90,10 @@ sub refresh {
     $logger->debug("Refreshing jobs list");
 
     $self->parse_qstat;
+    $self->refresh_stats;
 }
+
+# Fetch an individual job from the list
 
 sub fetch {
     my $self = shift;
@@ -84,6 +104,9 @@ sub fetch {
     return $self->jobs->{$jobid};
 }
 
+# Check if too much time has passed and we
+# want to expire the cache
+
 sub expired {
     my $self = shift;
     
@@ -93,6 +116,71 @@ sub expired {
     $logger->debug("QStat cache expired");
 
     return 1;
+}
+
+sub submit_job {
+    my $self = shift;
+    my $name = name;
+    my $qsub_file = shift;
+    my $job_dir = shift;
+
+    # First check if the scheduler is full
+    return 0 if($self->scheduler_full);
+    
+    # Prepend MetaScheduler_ so we can find our
+    # jobs later
+    $name = 'MetaScheduler_' . $name;
+
+    my $cmd = MetaScheduler::Config->config->{torque_qsub};
+#              . " -o $job_dir -e $job_dir $qsub_file";
+
+    open(CMD, '-|', $cmd, "-o $job_dir", "-e $job_dir", "$qsub_file");
+    my $output = do { local $/; <CMD> };
+    close CMD;
+    
+    my $return_code = ${^CHILD_ERROR_NATIVE};
+
+    unless($return_code == 0) {
+	# We have an error of some kind with the call
+	$logger->error("Error, unable to run qsub: $cmd -o $job_dir -e $job_dir $qsub_file, return code: $return_code, output $output");
+	return -1;
+    }
+
+    # Ok, we seem to have submitted successfully... let's see if we
+    # can pull a job_id out
+    unless($output =~ /(\d+)\.MetaScheduler::Config->config->{torque_server_name}/) {
+	# Hmm, we couldn't find a job id?
+	$logger->error("Error, no job_id returned by qsub: $cmd -o $job_dir -e $job_dir $qsub_file, output $output");
+	return -1;
+    }
+
+    # We've successfully submitted a job, I hope.
+    my $job_id = $1;
+    $logger->debug("Submitted job $qsub_file, name $name, job_id $job_id");
+
+    # Count the job as submitted
+    $self->inc("Q");
+
+    return $job_id;
+}
+
+# Returns true if we're full for new jobs
+# False if there's room for more
+
+sub scheduler_full {
+    my $self = shift;
+
+    my $c = 0;
+
+    for my $stats ($self->stat_pairs) {
+	# We don't want to count completed jobs
+	next if($stats->[0] eq "E");
+
+	$c += $stats->[1];
+    }
+
+    # Return if the number of jobs is too many
+    return ($c > MetaScheduler::Config->config->{torque_max_jobs});
 }
 
 sub parse_qstat {
@@ -140,5 +228,83 @@ sub parse_record {
 
     $self->set_job($jobid => $job);
 }
+
+sub refresh_stats {
+    my $self = shift;
+
+    $self->clear_stats;
+    $self->expire_old_jobs;
+
+    for my $job ($self->job_pairs) {
+	# Increment the stat that this job is in
+	$self->inc($job->[1]->{job_state});
+    }
+
+    $self->dump_stats;
+
+}
+
+# Expire older completed jobs
+
+sub expire_old_jobs {
+    my $self = shift;
+
+    for my $job ($self->job_pairs) {
+	# We only care about jobs that are in the complete state
+	next unless($job->[1]->{job_state} eq 'E');
+
+	next unless((time - str2time($job->[1]->{mtime})) >  
+		    MetaScheduler::Config->config->{torque_expire_time});
+
+	$logger->debug("Expiring completed job $job->[0], mtime was $job->[1]->{mtime}");
+	$self->delete_job($job->[0]);
+    }
+
+}
+
+sub dump_stats {
+    my $self = shift;
+
+    for my $stat ($self->stat_pairs) {
+	print "$stat->[0] : $stat->[1]\n";
+    }
+}
+
+sub inc {
+    my $self      = shift;
+    my $key       = shift;
+    my $increment = shift || 1;
+
+    my $value = $self->get_stat($key) || 0;
+
+    # bail out if value != numeric
+    if($value !~ m/^\d+$/) {
+        return $value;
+    }
+
+    $value += $increment;
+    $self->set_stat( $key, $value );
+
+    return $value;
+}
+
+sub dec {
+    my $self      = shift;
+    my $key       = shift;
+    my $decrement = shift || 1;
+
+    my $value = $self->get_stat($key) || 0;
+
+    # bail out if value != numeric
+    if($value !~ m/^\d+$/) {
+        return $value;
+    }
+
+    $value -= $decrement;
+    $self->set_stat( $key, $value );
+
+    return $value;
+}
+
 
 1;
