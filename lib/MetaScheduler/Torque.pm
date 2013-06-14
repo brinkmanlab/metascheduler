@@ -95,8 +95,16 @@ sub submit_job {
 	my $name = shift;
 	my $qsub_file = shift;
 	my $job_dir = shift;
+
+	# First check if the scheduler is full
+	return 0 if($self->scheduler_full);
 	
-	return MetaScheduler::Torque::QSub->submit_job($name, $qsub_file, $job_dir);
+	my $job_id = MetaScheduler::Torque::QSub->submit_job($name, $qsub_file, $job_dir);
+
+	# Refresh the job list so the new job is included
+	MetaScheduler::Torque::QStat->refresh({force => 1}) if($job_id);
+
+	return $job_id;
 }
 
 # See if there's room for more jobs
@@ -104,7 +112,7 @@ sub submit_job {
 sub scheduler_full {
     my $self = shift;
 
-    return MetaScheduler::Torque::QSub->scheduler_full();
+    return MetaScheduler::Torque::QStat->scheduler_full();
 }
 
 1;

@@ -85,7 +85,7 @@ sub refresh {
     my $self = shift;
     my $args = shift;
 
-    return unless($self->expired || $args->{force});
+    return unless($args->{force} || $self->expired);
 
     $logger->debug("Refreshing jobs list");
 
@@ -100,6 +100,10 @@ sub fetch {
     my $jobid = shift;
 
     $self->refresh;
+
+    # Append the server name if we're only given a numeric id
+    $jobid = "$jobid." . MetaScheduler::Config->config->{torque_server_name} 
+        if($jobid =~ /^(\d+)$/);
 
     return $self->jobs->{$jobid};
 }
@@ -116,52 +120,6 @@ sub expired {
     $logger->debug("QStat cache expired");
 
     return 1;
-}
-
-sub submit_job {
-    my $self = shift;
-    my $name = name;
-    my $qsub_file = shift;
-    my $job_dir = shift;
-
-    # First check if the scheduler is full
-    return 0 if($self->scheduler_full);
-    
-    # Prepend MetaScheduler_ so we can find our
-    # jobs later
-    $name = 'MetaScheduler_' . $name;
-
-    my $cmd = MetaScheduler::Config->config->{torque_qsub};
-#              . " -o $job_dir -e $job_dir $qsub_file";
-
-    open(CMD, '-|', $cmd, "-o $job_dir", "-e $job_dir", "$qsub_file");
-    my $output = do { local $/; <CMD> };
-    close CMD;
-    
-    my $return_code = ${^CHILD_ERROR_NATIVE};
-
-    unless($return_code == 0) {
-	# We have an error of some kind with the call
-	$logger->error("Error, unable to run qsub: $cmd -o $job_dir -e $job_dir $qsub_file, return code: $return_code, output $output");
-	return -1;
-    }
-
-    # Ok, we seem to have submitted successfully... let's see if we
-    # can pull a job_id out
-    unless($output =~ /(\d+)\.MetaScheduler::Config->config->{torque_server_name}/) {
-	# Hmm, we couldn't find a job id?
-	$logger->error("Error, no job_id returned by qsub: $cmd -o $job_dir -e $job_dir $qsub_file, output $output");
-	return -1;
-    }
-
-    # We've successfully submitted a job, I hope.
-    my $job_id = $1;
-    $logger->debug("Submitted job $qsub_file, name $name, job_id $job_id");
-
-    # Count the job as submitted
-    $self->inc("Q");
-
-    return $job_id;
 }
 
 # Returns true if we're full for new jobs

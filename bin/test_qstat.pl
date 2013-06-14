@@ -43,5 +43,12 @@ my $job = MetaScheduler::Torque::QStat->fetch("11526266.b0");
 print Dumper $job;
 
 print "Job state: " .  MetaScheduler::Torque->fetch_job_state("11526266.b0") . "\n";
+
+my $job_id = MetaScheduler::Torque->submit_job("test_job", "/my/qsub/file.qsub", "/jobdir");
+
+print "We received job number $job_id\n";
+
+print "Job state: " .  MetaScheduler::Torque->fetch_job_state("$job_id") . "\n";
+
 }
 
