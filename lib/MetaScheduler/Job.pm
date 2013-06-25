@@ -252,7 +252,7 @@ sub create_job {
     my $sqlstmt = qq{INSERT INTO task (job_id, job_type, job_name, job_scheduler, extra_parameters, priority) VALUES (?, ?, ?, ?, ?)};
     my $add_job = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
-    $add_job->execute($args->{job_id}, $args->{job_type}, $args->{job_name}, $args->{job_scheduler} || 'Torque', $args->{extra_parameters} || '', $args->{priority} || 2) or
+    $add_job->execute($args->{job_id}, $args->{job_type}, $args->{job_name}, $args->{job_scheduler} || $cfg->{default_scheduler}, $args->{extra_parameters} || '', $args->{priority} || 2) or
 	die "Error inserting job ($args->{job_id}, $args->{job_type}, $args->{job_name})";
 
     my $task_id = $dbh->last_insert_id( undef, undef, undef, undef );

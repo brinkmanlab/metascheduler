@@ -225,7 +225,7 @@ sub run_component {
     my $ctype = shift;
 
     # We can't run on a pipeline with no job attached
-    return undef unless($job);
+    return undef unless($job && $g);
 
     my $c = $job->fetch_component($ctype);
     unless($c) {
@@ -282,7 +282,10 @@ sub attach_job {
     my $sched = $job->job_scheduler;
     # will this work?
     # $scheduler = "MetaScheduler::$job->job_scheduler"->instance();
-    $scheduler = "MetaScheduler::$sched"->instance();
+    eval {
+	no strict 'refs';
+	$scheduler = "MetaScheduler::$sched"->instance();
+    }
 }
 
 # We call this each time the scheduler wants to give the
@@ -330,6 +333,7 @@ sub overlay_walk_component {
 
     $logger->debug("Walking component $v");
 
+    # Is is a sink vertex, or a vertex with no children
     if($g->is_sink_vertex($v)) {
 	$logger->debug("Vertex $v is a sink, stopping");
 	return;

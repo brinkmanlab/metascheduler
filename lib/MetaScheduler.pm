@@ -166,4 +166,15 @@ sub initializeScheduler {
     }
 }
 
+sub fetchDefaultScheduler {
+    my $self = shift;
+
+    if(reftype $cfg->{schedulers} eq 'ARRAY') {
+	return pop @{$cfg->{schedulers}};
+    } else {
+	return $cfg->{schedulers};
+    }
+
+}
+
 1;

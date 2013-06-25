@@ -30,7 +30,7 @@ MAIN: {
 
     my $metascheduler = MetaScheduler->new({cfg_file => $cfname });
 
-    MetaScheduler::Torque->initialize();
+#    MetaScheduler::Torque->initialize();
 
     MetaScheduler::Torque::QStat->refresh({force => 1});
 
