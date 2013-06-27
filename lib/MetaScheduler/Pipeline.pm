@@ -300,9 +300,146 @@ sub run_iteration {
 	die "Error, can't run an iteration on pipeline, nob job attached";
     }
 
+    $logger->debug("Running iteration of job " . $job->job_type . " with job_id " . $job->job_id);
+
     # Before we begin an iteration, validate the state of the job
     $self->validate_state();
 
+    # Next we clean up the graph for any state changes that occurred in this
+    # iteration
+    my @starts = $self->find_entry_points;
+
+    # Walk the graph and remove edges for completed/errored jobs
+    foreach my $start (@starts) {
+	my $v = $start;
+
+	$self->overlay_walk_component($v);
+    }
+
+    # Now go through again and find the components that are pending
+    # and all their parents are complete, following the success/failure
+    # path
+    $logger->debug("Walking the job looking for components to run");
+    foreach my $start (@starts) {
+	my $v = $start;
+
+	$self->walk_and_run($v)
+    }
+
+}
+
+# Walk the graph and run the components that are pending if
+# all their parents are complete or error.  We don't need to
+# worry about which path to take because before this function 
+# is called overlay_walk_component should have been called to
+# clean up the paths depending on success/failures of components
+# All we have to do is simply follow the paths available 
+# recursively.
+
+sub walk_and_run {
+    my $self = shift;
+    my $v = shift;
+
+    $logger->debug("Walking component $v");
+
+    my $state = $job->find_component_state($v);
+
+    given($job->find_component_state($v)) {
+	when ("PENDING")    { 
+	    # Unless all the predecessors are complete or error
+	    # we can't run this component
+	    $logger->debug("Component $v is pending, checking parents");
+#	    foreach my $u ($g->predecessors($v)) {
+#		my $s = $job->find_component_state($u);
+#		return unless(($s eq 'COMPLETE') || ($s eq 'ERROR'));
+#	    }
+
+	    return unless($self->is_runable($v);
+
+	    $logger->debug("Looks good for $v, trying to run");
+	    $self->run_component($v);
+	    return;
+	}
+	when ("COMPLETE")   { 
+	    $logger->debug("Component $v complete, walking children");
+	    foreach my $u ($g->successors($v)) {
+		$self->walk_and_run($v);
+	    }
+	}
+	when ("HOLD")       { return; }
+	when ("ERROR")      { 
+	    $logger->debug("Component $v error, walking children");
+	    foreach my $u ($g->successors($v)) {
+		$self->walk_and_run($v);
+	    }
+	}
+	when ("RUNNING")    { return; }
+    }
+    
+}
+
+sub is_runable {
+    my $self = shift;
+    my $v = shift;
+
+    foreach my $u ($g->predecessors($v)) {
+	my $s = $job->find_component_state($u);
+	return 0 unless(($s eq 'COMPLETE') || ($s eq 'ERROR'));
+    }
+
+    return 1;
+}
+
+sub update_job_status {
+    my $self = shift;
+    my $v = shift;
+
+
+    foreach my $v ($g->sink_verticies()) {
+	$self->climb_and_find_status($v);
+    }
+}
+
+sub climb_and_find_status {
+    my $self = shift;
+    my $v = shift;
+
+    given($job->find_component_state($v)) {
+	when ("COMPLETE")   { return "COMPLETE"; }
+	when ("ERROR")      { return "ERROR"; }
+	when ("HOLD")       { return "HOLD"; }
+	when ("RUNNING")    { return "RUNNING"; }
+	when ("PENDING")    {
+	    my $s;
+	    foreach my $u ($g->predecessors($v)) {
+		my $new_s = $g->climb_and_find_status($v);
+		$s = $self->compare_status($s, $new_s);
+	    }
+	}
+    }
+}
+
+
+# Basically it comes down to priorities, which status
+# takes precidence over others, and push that back in to
+# what will be returned.
+
+sub compare_status {
+    my $self = shift;
+    my $s = shift,
+    my $new_s = shift;
+
+    # If we find a component in HOLD, that takes priority
+    return "HOLD" if($new_s eq "HOLD");
+
+    # Next, if we have anything running the job is obviously running
+    return "RUNNING" if($new_s eq "RUNNING");
+
+    # If we reach a pending, the job is viable, and if it's not viable
+    # we would have hit a HOLD or RUNNING on another branch
+    return "PENDING" if($new_s eq "PENDING");
+
+    return $new_s;
 }
 
 sub overlay_job {
