@@ -366,6 +366,20 @@ sub find_component {
     return undef;
 }
 
+# Return a count of all the state types
+
+sub find_all_state {
+    my $self-> shift;
+
+    my $state_count;
+
+    foreach my $c (@{$self->components}) {
+	$state_count->{$c->run_status} += 1;
+    }
+
+    return $state_count;
+}
+
 sub load_job {
     my $self = shift;
     my $task_id = shift;

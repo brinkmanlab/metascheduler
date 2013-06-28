@@ -46,6 +46,8 @@ my $job = MetaScheduler::Job->new({task_id => $task_id->[0]});
 $pipeline->attach_job($job);
 $pipeline->dump_graph;
 
+print $pipeline->find_runable;
+
 #my $json;
 #{
 #    local $/; #enable slurp

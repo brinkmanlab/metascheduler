@@ -32,6 +32,7 @@ use Moose;
 use GraphViz2;
 #use Switch;
 use feature qw{ switch };
+use List::MoreUtils qw(uniq);
 
 my $pipeline;
 my $logger;
@@ -354,7 +355,7 @@ sub walk_and_run {
 #		return unless(($s eq 'COMPLETE') || ($s eq 'ERROR'));
 #	    }
 
-	    return unless($self->is_runable($v);
+	    return unless($self->is_runable($v));
 
 	    $logger->debug("Looks good for $v, trying to run");
 	    $self->run_component($v);
@@ -390,56 +391,117 @@ sub is_runable {
     return 1;
 }
 
+# This might not catch all the corner cases, but
+# if there is anything running, well, it's running.
+# Else if there is anything held, that needs to be
+# examined and the status is hold.
+# Only three possibilities left, complete, error or
+# pending.
+# Pending is only if all source verticies are pending,
+# otherwise we've begun.
+# If all the sink verticies are complete/error, we're done.
+# The only other two options are we're running but we have
+# items not let in the queue, but if we've begun and can't
+# actually run anything we're stuck, that's bad.
+
 sub update_job_status {
     my $self = shift;
-    my $v = shift;
 
+    my $states = $job->find_all_state;
 
-    foreach my $v ($g->sink_verticies()) {
-	$self->climb_and_find_status($v);
+    if($states->{"RUNNING"}) {
+	$job->run_status("RUNNING");
+	return;
+    } elsif($states->{"HOLD"}) {
+	$job->run_status("HOLD");
+	return;
     }
+
+    my @starts = $self->find_entry_points();
+    my $started = 0;
+    foreach my $v (@starts) {
+	$started = 1 unless($job->find_component_state($v) eq "PENDING");
+    }
+    unless($started) {
+	$job->run_status("PENDING");
+	return;
+    }
+
+    my $ended = 1;
+    my $error = 0;
+    foreach my $v ($g->sink_verticies()) {
+	my $s = $job->find_component_state($v);
+	$ended = 0 unless($s eq 'COMPLETE' ||
+			  $s eq 'ERROR');
+	$error = 1 if($s eq 'ERROR');
+    }
+    if($ended) {
+	if($error) {
+	    $job->run_status('ERROR');
+	}
+	$job->run_status('COMPLETE');
+    }
+
+    # Now we're in to the weird states, either stuck or
+    # just nothing happens to be in the queue
+    
 }
 
-sub climb_and_find_status {
+# Untested
+
+sub find_runable {
     my $self = shift;
     my $v = shift;
+
+    my $runable;
+
+    unless($v) {
+	my @starts = $self->find_entry_points;
+
+	foreach my $start (@starts) {
+	    push @{$runable}, $self->find_runable($v);
+	}
+
+#	@{$runable} = grep { ! $seen{ $_ }++ } @{$runable};
+	@{$runable} = uniq(@{$runable});
+	return $runable;
+    }
+
+    my $state = $job->find_component_state($v);
 
     given($job->find_component_state($v)) {
-	when ("COMPLETE")   { return "COMPLETE"; }
-	when ("ERROR")      { return "ERROR"; }
-	when ("HOLD")       { return "HOLD"; }
-	when ("RUNNING")    { return "RUNNING"; }
-	when ("PENDING")    {
-	    my $s;
-	    foreach my $u ($g->predecessors($v)) {
-		my $new_s = $g->climb_and_find_status($v);
-		$s = $self->compare_status($s, $new_s);
-	    }
+	when ("PENDING")    { 
+	    # Unless all the predecessors are complete or error
+	    # we can't run this component
+	    $logger->debug("Component $v is pending, checking parents");
+#	    foreach my $u ($g->predecessors($v)) {
+#		my $s = $job->find_component_state($u);
+#		return unless(($s eq 'COMPLETE') || ($s eq 'ERROR'));
+#	    }
+
+	    return unless($self->is_runable($v));
+
+	    $logger->debug("Looks good for $v, trying to run");
+	    return $v;
 	}
+	when ("COMPLETE")   { 
+	    $logger->debug("Component $v complete, walking children");
+	    foreach my $u ($g->successors($v)) {
+		push @{$runable}, $self->walk_and_run($v);
+	    }
+	    return $runable;
+	}
+	when ("HOLD")       { return; }
+	when ("ERROR")      { 
+	    $logger->debug("Component $v error, walking children");
+	    foreach my $u ($g->successors($v)) {
+		push @{$runable}, $self->walk_and_run($v);
+	    }
+	    return $runable;
+	}
+	when ("RUNNING")    { return; }
     }
-}
-
-
-# Basically it comes down to priorities, which status
-# takes precidence over others, and push that back in to
-# what will be returned.
-
-sub compare_status {
-    my $self = shift;
-    my $s = shift,
-    my $new_s = shift;
-
-    # If we find a component in HOLD, that takes priority
-    return "HOLD" if($new_s eq "HOLD");
-
-    # Next, if we have anything running the job is obviously running
-    return "RUNNING" if($new_s eq "RUNNING");
-
-    # If we reach a pending, the job is viable, and if it's not viable
-    # we would have hit a HOLD or RUNNING on another branch
-    return "PENDING" if($new_s eq "PENDING");
-
-    return $new_s;
+ 
 }
 
 sub overlay_job {
