@@ -46,7 +46,10 @@ my $job = MetaScheduler::Job->new({task_id => $task_id->[0]});
 $pipeline->attach_job($job);
 $pipeline->dump_graph;
 
-print $pipeline->find_runable;
+my $pipeline2 = $metascheduler->find_by_id(57);
+
+my @runable = $pipeline2->find_runable;
+print Dumper @runable;
 
 #my $json;
 #{

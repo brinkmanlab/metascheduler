@@ -29,6 +29,10 @@ Job counter, qstat should fill in stats about # of jobs in each running
 state, function to say is there any spare room to submit a new job
 according to the max jobs in the config file, and when submitting a job the
 running job counter should increment.
+Use torque prologue scripts to have the scheduler
+notify us when a job is done? (via tcp), this would involve
+a wrapper around the user submitted job, well, more just
+adding a prologue script to the right place before submitting.
 
 =cut
 
@@ -105,6 +109,17 @@ sub submit_job {
 	MetaScheduler::Torque::QStat->refresh({force => 1}) if($job_id);
 
 	return $job_id;
+}
+
+# Refresh the scheduler's information
+# All schedulers must have a refresh function
+# even it if's only a dummy
+
+sub refresh {
+    my $self = shift;
+    my $force = shift || 0;
+
+    MetaScheduler::Torque::QStat->refresh({force => $force});
 }
 
 # See if there's room for more jobs

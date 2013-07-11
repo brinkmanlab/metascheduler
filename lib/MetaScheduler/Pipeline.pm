@@ -5,6 +5,8 @@
 =head1 DESCRIPTION
 
     Object for holding and managing individual pipelines
+    It should have a job attached to it and this is the 
+    main object for managing tasks in the scheduler.
 
 =head1 AUTHOR
 
@@ -40,6 +42,8 @@ my $cfg;
 my $scheduler;
 my $g;
 my $job;
+my $errors = 0;
+my $last_run = 0;
 
 sub BUILD {
     my $self = shift;
@@ -327,6 +331,10 @@ sub run_iteration {
 	$self->walk_and_run($v)
     }
 
+    # And before we relinquish control let's verify our state, so
+    # the scheduler knows what state we're in
+    $self->update_job_status;
+
 }
 
 # Walk the graph and run the components that are pending if
@@ -383,12 +391,34 @@ sub is_runable {
     my $self = shift;
     my $v = shift;
 
+    return 0 unless($job->find_component_state($v) eq "PENDING");
+
     foreach my $u ($g->predecessors($v)) {
 	my $s = $job->find_component_state($u);
 	return 0 unless(($s eq 'COMPLETE') || ($s eq 'ERROR'));
     }
 
     return 1;
+}
+
+# Fetch the job component of the task
+
+sub fetch_job {
+    my $self = shift;
+
+    return $job if($job);
+
+    return undef;
+}
+
+# Shortcut to fetch the task_id
+
+sub fetch_task_id {
+    my $self = shift;
+
+    return $job->task_id if($job);
+
+    return 0;
 }
 
 # This might not catch all the corner cases, but
@@ -440,26 +470,43 @@ sub update_job_status {
 	    $job->run_status('ERROR');
 	}
 	$job->run_status('COMPLETE');
+	return;
     }
 
     # Now we're in to the weird states, either stuck or
     # just nothing happens to be in the queue
-    
+    $logger->error("We seem to be stuck in this job, that's not good. Job:" . $job->task_id);
+
 }
 
-# Untested
+# Return an array of all runable components
+# Runable means all their parents are complete or
+# error (or it's a start point)
 
 sub find_runable {
     my $self = shift;
     my $v = shift;
 
+    return unless($job && $g);
+
     my $runable;
+    $logger->debug("Finding runable components for pipeline");
 
     unless($v) {
 	my @starts = $self->find_entry_points;
 
 	foreach my $start (@starts) {
-	    push @{$runable}, $self->find_runable($v);
+	    $logger->debug("Checking start point $start");
+	    if($self->is_runable($start)) {
+		push @{$runable}, $start;
+		$logger->debug("Start point $start is runable");
+		next;
+	    }
+
+	    foreach my $u ($g->successors($start)) {
+		push @{$runable}, $self->find_runable($u);
+	    }
+
 	}
 
 #	@{$runable} = grep { ! $seen{ $_ }++ } @{$runable};
@@ -467,6 +514,7 @@ sub find_runable {
 	return $runable;
     }
 
+    $logger->debug("Checking state for $v");
     my $state = $job->find_component_state($v);
 
     given($job->find_component_state($v)) {
@@ -481,23 +529,23 @@ sub find_runable {
 
 	    return unless($self->is_runable($v));
 
-	    $logger->debug("Looks good for $v, trying to run");
+	    $logger->debug("Looks good for $v, is runable");
 	    return $v;
 	}
 	when ("COMPLETE")   { 
 	    $logger->debug("Component $v complete, walking children");
 	    foreach my $u ($g->successors($v)) {
-		push @{$runable}, $self->walk_and_run($v);
+		push @{$runable}, $self->find_runable($u);
 	    }
-	    return $runable;
+	    ($runable ? return @{$runable} : return );
 	}
 	when ("HOLD")       { return; }
 	when ("ERROR")      { 
 	    $logger->debug("Component $v error, walking children");
 	    foreach my $u ($g->successors($v)) {
-		push @{$runable}, $self->walk_and_run($v);
+		push @{$runable}, $self->find_runable($u);
 	    }
-	    return $runable;
+	    ($runable ? return @{$runable} : return );
 	}
 	when ("RUNNING")    { return; }
     }

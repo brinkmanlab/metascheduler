@@ -38,6 +38,10 @@ use MetaScheduler::Job;
 use Scalar::Util 'reftype';
 use Log::Log4perl;
 
+my $alarm_timeout = 60;
+my $error_backoff = 600;
+my $max_errors = 6;
+
 # Even though it's called "jobs" they will be
 # MetaScheduler::Pipeline references, since Pipeline
 # objects hold jobs
@@ -52,10 +56,12 @@ has 'jobs' => (
          get_job    => 'get',
          delete_job => 'delete',
          clear_job  => 'clear',
+         fetch_keys => 'keys',
     },
 );
 
 my $cfg; my $logger;
+my $sig_int = 0;
 
 sub BUILD {
     my $self = shift;
@@ -99,6 +105,78 @@ sub BUILD {
 
 }
 
+# This is the work horse of the scheduler.
+# Once the scheduler is setup and initialized
+# this subroutine takes over and manages things.
+# We have to do two main tasks, listen for connections
+# on our TCP port from clients submitting or inquiring
+# about jobs and cycle through existing jobs running 
+# and managing them.
+
+sub runScheduler {
+    my $self = shift;
+
+    # Setup TCP port
+
+    # while we haven't received a finish signal
+    while(!$sig_int) {
+
+	# We're going to go through the jobs and 
+	# deal with them one by one for this cycle
+	for my $pipeline ($self->fetch_keys) {
+	    $self->processJob($pipeline);
+	}
+    }
+}
+
+# For a pipeline, give it a time slice to do
+# what it needs to, check if it's done, deal
+# with any completion or errors.
+
+sub processJob {
+    my $self = shift;
+    my $pipeline = shift;
+
+    my $task_id = $pipeline->fetch_task_id;
+
+    # Have we had errors in past attempts?
+    if($pipeline->errors) {
+	# Skipping, we'll provide a method to clear
+	# error counters elsewhere via tcp
+	return if($pipeline->errors > $max_errors);
+
+	# How long are we supposed to wait before trying again?
+	$wait_time = $pipeline->errors * $error_backoff;
+
+	# Not long enough, skipping
+	return if((time - $pipeline->last_run) < $wait_time);
+    }
+
+    # In an eval block to protect the scheduler
+    eval {
+	# Set an alarm so we don't get stuck
+	# processing the pipeline
+	local $SIG{ALRM} = sub { die "timeout\n" };
+	alarm $alarm_timeout;
+	$pipeline->run_iteration;
+	alarm 0;
+	# Set the last run time
+	$pipeline->last_run = time;
+    };
+    # Did we get any errors back?
+    if($@) {
+	# Uh-oh, we had an alarm, the iteration timed out
+	if($@ eq "timeout\n") {
+	    $logger->error("Job timed out while running an interation, fail count " . $pipeline->errors . ", task_id $task_id");
+	} else {
+	    # Some other kind of error?
+	    $logger->error("Error running iteration of task_id $task_id: " . $@);
+	}
+	# Count the error for our max error count and backoff
+	$pipeline->errors++;
+    }
+}
+
 sub initializeMetaScheduler {
     my $self = shift;
     
@@ -133,10 +211,23 @@ sub loadJobs {
 	if($@) {
 	    $logger->error("Error, can not initialize job $row[0] of type $row[1], skipping. [$@]");
 	} else {
-	    $logger->debug("Finished initializing job, saving.");
-	    $self->set_job($self->concatName($job->job_type, $job->job_name) => $job);
+	    $logger->debug("Finished initializing job " . $self->concatName($job->job_type, $job->job_name) . ", saving.");
+	    $self->set_job($self->concatName($job->job_type, $job->job_name) => $pipeline);
 	}
     }
+}
+
+sub find_by_id {
+    my $self = shift;
+    my $task_id = shift;
+
+    for my $pipeline ($self->fetch_keys) {
+	my $job = $self->get_job($pipeline)->fetch_job;
+	return $self->get_job($pipeline)
+	    if($job->task_id == $task_id);
+    }
+
+    return undef;
 }
 
 sub concatName {
@@ -175,6 +266,13 @@ sub fetchDefaultScheduler {
 	return $cfg->{schedulers};
     }
 
+}
+
+sub finish {
+    my $self = shift;
+
+    $logger->info("Receiver terminate signal, exiting at the end of this cycle.");
+    $sig_int = 1;
 }
 
 1;
