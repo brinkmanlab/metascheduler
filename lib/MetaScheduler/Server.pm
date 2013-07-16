@@ -34,7 +34,8 @@ use IO::Socket;
 use Net::hostent;      # for OOish version of gethostbyaddr
 use Fcntl;
 use Tie::RefHash;
-use Fcntl qw/F_GETFL, F_SETFL, O_NONBLOCK/;
+#use Fcntl qw/F_GETFL, F_SETFL, O_NONBLOCK/;
+use Fcntl qw/O_NONBLOCK/;
 use MetaScheduler::Config;
 
 my $logger;
@@ -43,9 +44,9 @@ my $port;
 my $server;
 my $sel;
 # begin with empty buffers
-%inbuffer  = ();
-%outbuffer = ();
-%ready     = ();
+my %inbuffer  = ();
+my %outbuffer = ();
+my %ready     = ();
 
 tie %ready, 'Tie::RefHash';
 
@@ -78,6 +79,15 @@ sub instance {
     return $self;
 }
 
+sub reqs_waiting {
+    my $self = shift;
+    my $timeout = shift || 1;
+
+    return 1 if($sel->can_read($timeout));
+
+    return 0;
+}
+
 sub process_requests {
     my $self = shift;
     my $callback = shift;
@@ -92,7 +102,7 @@ sub process_requests {
 	    # accept a new connection
 	    
 	    $client = $server->accept();
-	    $select->add($client);
+	    $sel->add($client);
 	    $self->nonblock($client);
 	} else {
 	    # read data
@@ -105,8 +115,9 @@ sub process_requests {
                 delete $outbuffer{$client};
                 delete $ready{$client};
 
-                $select->remove($client);
+                $sel->remove($client);
                 close $client;
+		$logger->debug("Closing socket");
                 next;
 	    }
 
@@ -128,7 +139,7 @@ sub process_requests {
     }
 
     # Buffers to flush?
-    foreach $client ($sel->can_write(1)) {
+    foreach $client ($sel->can_write(0.1)) {
         # Skip this client if we have nothing to say
         next unless exists $outbuffer{$client};
 
@@ -151,6 +162,7 @@ sub process_requests {
 
             $sel->remove($client);
             close($client);
+	    $logger->debug("Closing socket, error?");
             next;
         }
     }
@@ -183,9 +195,9 @@ sub nonblock {
     my $sock = shift;
     my $flags;
 
-    $flags = fcntl($socket, F_GETFL, 0)
+    $flags = fcntl($sock, F_GETFL, 0)
             or die "Can't get flags for socket: $!\n";
-    fcntl($socket, F_SETFL, $flags | O_NONBLOCK)
+    fcntl($sock, F_SETFL, $flags | O_NONBLOCK)
             or die "Can't make socket nonblocking: $!\n";
 }
 

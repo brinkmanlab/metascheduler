@@ -26,4 +26,10 @@ MAIN: {
 
     my $metascheduler = MetaScheduler->new({cfg_file => $cfname });
 
+    eval {
+	$metascheduler->runScheduler;
+    };
+    if($@) {
+	print "Error! $@\n";
+    }
 }

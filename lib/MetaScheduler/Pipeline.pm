@@ -42,8 +42,24 @@ my $cfg;
 my $scheduler;
 my $g;
 my $job;
-my $errors = 0;
 my $last_run = 0;
+
+has 'errors' => (
+      traits  => ['Counter'],
+      is      => 'ro',
+      isa     => 'Int',
+      default => 0,
+      handles => {
+          inc_errors   => 'inc',
+          dec_errors   => 'dec',
+          reset_errors => 'reset',
+      },
+);
+
+has last_run => (
+    is     => 'rw',
+    isa    => 'Int'
+);
 
 sub BUILD {
     my $self = shift;
@@ -232,7 +248,7 @@ sub run_component {
     # We can't run on a pipeline with no job attached
     return undef unless($job && $g);
 
-    my $c = $job->fetch_component($ctype);
+    my $c = $job->find_component($ctype);
     unless($c) {
 	$logger->error("Component $ctype not found in job " . $job->task_id . " can't start");
 	return undef;
@@ -274,7 +290,7 @@ sub find_entry_points {
 
     my @v = $g->source_vertices();
 
-    print Dumper @v;
+#    print Dumper @v;
     return @v;
 }
 
@@ -372,14 +388,14 @@ sub walk_and_run {
 	when ("COMPLETE")   { 
 	    $logger->debug("Component $v complete, walking children");
 	    foreach my $u ($g->successors($v)) {
-		$self->walk_and_run($v);
+		$self->walk_and_run($u);
 	    }
 	}
 	when ("HOLD")       { return; }
 	when ("ERROR")      { 
 	    $logger->debug("Component $v error, walking children");
 	    foreach my $u ($g->successors($v)) {
-		$self->walk_and_run($v);
+		$self->walk_and_run($u);
 	    }
 	}
 	when ("RUNNING")    { return; }
@@ -683,6 +699,16 @@ sub fetch_component {
     return 0;
 }
 
+sub fetch_status {
+    my $self = shift;
+
+    if($job) {
+	return $job->run_status;
+    }
+
+    return undef;
+}
+
 sub graph {
     my $self = shift;
     my $fields = shift;
@@ -720,7 +746,7 @@ sub graph_node {
 
     return unless($c = $job->find_component($v));
 
-    print Dumper MetaScheduler::Component->meta->get_attribute_list;
+#    print Dumper MetaScheduler::Component->meta->get_attribute_list;
 
     my $colour;
     given($c->run_status) {

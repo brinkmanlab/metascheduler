@@ -369,7 +369,7 @@ sub find_component {
 # Return a count of all the state types
 
 sub find_all_state {
-    my $self-> shift;
+    my $self = shift;
 
     my $state_count;
 

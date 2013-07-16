@@ -33,6 +33,7 @@ use Moose;
 use Data::Dumper;
 use MetaScheduler::DBISingleton;
 use MetaScheduler::Config;
+use MetaScheduler::Server;
 use MetaScheduler::Pipeline;
 use MetaScheduler::Job;
 use Scalar::Util 'reftype';
@@ -52,15 +53,19 @@ has 'jobs' => (
     isa     => 'HashRef',
     default => sub { {} },
     handles => {
-         set_job    => 'set',
-         get_job    => 'get',
-         delete_job => 'delete',
-         clear_job  => 'clear',
-         fetch_keys => 'keys',
+         set_job     => 'set',
+         get_job     => 'get',
+         delete_job  => 'delete',
+         clear_job   => 'clear',
+         fetch_keys  => 'keys',
+         fetch_values =>'values',
+         job_pairs   => 'kv',
     },
 );
 
-my $cfg; my $logger;
+my @job_ary;
+
+my $cfg; my $logger; my $server;
 my $sig_int = 0;
 
 sub BUILD {
@@ -103,6 +108,12 @@ sub BUILD {
     # Find all the running/pending jobs
     $self->initializeMetaScheduler();
 
+    foreach my $k ($self->fetch_keys) {
+	my $p = $self->get_job($k);
+	print "$k: " . $p->fetch_task_id . " ". $p ."\n";
+    }
+    exit;
+
 }
 
 # This is the work horse of the scheduler.
@@ -118,14 +129,34 @@ sub runScheduler {
 
     # Setup TCP port
 
+    $logger->debug("Running the scheduler, start the loop!");
+
     # while we haven't received a finish signal
     while(!$sig_int) {
 
+	$logger->debug("In the loop");
+
 	# We're going to go through the jobs and 
 	# deal with them one by one for this cycle
-	for my $pipeline ($self->fetch_keys) {
+	for my $name ($self->fetch_keys) {
+	    my $pipeline = $self->get_job($name);
+	    $logger->debug("Processing a pipeline $name");
+
 	    $self->processJob($pipeline);
+
+	    # We don't want to keep the tcp connections waiting,
+	    # they're more of a priority
+	    if($server->reqs_waiting(0.1)) {
+		$server->process_requests($self);
+	    }
 	}
+
+	# And do a gratuitous processing of requests
+	# in case we have anything to send, and set the
+	# timeout to 1 second so we're not spinning quite
+	# as tight a loop.
+	$logger->debug("Processing any TCP requests");
+	$server->process_requests($self);
     }
 }
 
@@ -139,6 +170,26 @@ sub processJob {
 
     my $task_id = $pipeline->fetch_task_id;
 
+    my $state = $pipeline->fetch_status;
+
+    # Is the job finished?
+    if($state eq 'COMPLETE') {
+	# We keep jobs around for a fixed amount
+	# of time, then remove them from memory to save
+	# resources. If queried later they'll just have
+	# to be pulled from disk
+	my $timeout = $cfg->{cache_timeout} || 86400;
+	if(time > ($pipeline->last_run + $timeout)) {
+	    $logger->debug("Job has completed and expired, removing: $task_id");
+	    $self->delete_job($pipeline);
+	}
+
+	# Regardless, we don't need to process completed jobs
+	return;
+    }
+
+    $logger->debug("Giving job $task_id a slice");
+
     # Have we had errors in past attempts?
     if($pipeline->errors) {
 	# Skipping, we'll provide a method to clear
@@ -146,7 +197,7 @@ sub processJob {
 	return if($pipeline->errors > $max_errors);
 
 	# How long are we supposed to wait before trying again?
-	$wait_time = $pipeline->errors * $error_backoff;
+	my $wait_time = $pipeline->errors * $error_backoff;
 
 	# Not long enough, skipping
 	return if((time - $pipeline->last_run) < $wait_time);
@@ -161,7 +212,7 @@ sub processJob {
 	$pipeline->run_iteration;
 	alarm 0;
 	# Set the last run time
-	$pipeline->last_run = time;
+	$pipeline->last_run(time);
     };
     # Did we get any errors back?
     if($@) {
@@ -173,7 +224,9 @@ sub processJob {
 	    $logger->error("Error running iteration of task_id $task_id: " . $@);
 	}
 	# Count the error for our max error count and backoff
-	$pipeline->errors++;
+	$pipeline->inc_errors;
+    } else {
+	$pipeline->reset_errors;
     }
 }
 
@@ -184,7 +237,7 @@ sub process_request {
     my $self = shift;
     my $req = shift;
 
-
+    return "SUCCESS\n";
 }
 
 sub initializeMetaScheduler {
@@ -192,7 +245,10 @@ sub initializeMetaScheduler {
     
     $self->loadJobs();
 
-    # 
+    # Initialize the TCP server
+    MetaScheduler::Server->initialize();
+    $server =  MetaScheduler::Server->instance;
+
 }
 
 sub loadJobs {
@@ -221,10 +277,24 @@ sub loadJobs {
 	if($@) {
 	    $logger->error("Error, can not initialize job $row[0] of type $row[1], skipping. [$@]");
 	} else {
-	    $logger->debug("Finished initializing job " . $self->concatName($job->job_type, $job->job_name) . ", saving.");
-	    $self->set_job($self->concatName($job->job_type, $job->job_name) => $pipeline);
+	    my $name = $self->concatName($job->job_type, $job->job_name);
+	    $logger->debug("Finished initializing job $name, saving.");
+	    $self->set_job($name => $pipeline);
+	    push @job_ary, $job;
+	    $logger->debug("Task saved: " . $pipeline->fetch_task_id . ' ' . $pipeline);
 	}
     }
+
+    foreach my $k ($self->fetch_keys) {
+	my $p = $self->get_job($k);
+	print "$k: " . $p->fetch_task_id . " ". $p ."\n";
+    }
+    print "\n";
+
+    foreach my $p (@job_ary) {
+	print $p->task_id . " ". $p ."\n";
+    }
+    print "\n";
 }
 
 sub find_by_id {
