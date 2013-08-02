@@ -39,7 +39,7 @@ MAIN: {
 
     $client->connect('localhost', 7709);
 
-    my $results = $client->send_req("Test sending\n");
+    my $results = $client->send_req("Test sending\nMultiline\n[]\n{foo: bar\n}\nEOF\n");
 
     print "We received back:\n$results";
 }

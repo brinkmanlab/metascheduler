@@ -83,7 +83,7 @@ sub BUILD {
     my $self = shift;
     my $args = shift;
 
-    $logger = Log::Log4perl->get_logger;
+    $logger = Log::Log4perl->get_logger unless($logger);
 
     if($args->{component_id}) {
 	# Load an existing component from the database

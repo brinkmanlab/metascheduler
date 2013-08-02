@@ -108,11 +108,11 @@ sub BUILD {
     # Find all the running/pending jobs
     $self->initializeMetaScheduler();
 
-    foreach my $k ($self->fetch_keys) {
-	my $p = $self->get_job($k);
-	print "$k: " . $p->fetch_task_id . " ". $p ."\n";
-    }
-    exit;
+#    foreach my $k ($self->fetch_keys) {
+#	my $p = $self->get_job($k);
+#	print "$k: " . $p->fetch_task_id . " ". $p ."\n";
+#    }
+#    exit;
 
 }
 
@@ -285,16 +285,16 @@ sub loadJobs {
 	}
     }
 
-    foreach my $k ($self->fetch_keys) {
-	my $p = $self->get_job($k);
-	print "$k: " . $p->fetch_task_id . " ". $p ."\n";
-    }
-    print "\n";
+#    foreach my $k ($self->fetch_keys) {
+#	my $p = $self->get_job($k);
+#	print "$k: " . $p->fetch_task_id . " ". $p ."\n";
+#    }
+#    print "\n";
 
-    foreach my $p (@job_ary) {
-	print $p->task_id . " ". $p ."\n";
-    }
-    print "\n";
+#    foreach my $p (@job_ary) {
+#	print $p->task_id . " ". $p ."\n";
+#    }
+#    print "\n";
 }
 
 sub find_by_id {

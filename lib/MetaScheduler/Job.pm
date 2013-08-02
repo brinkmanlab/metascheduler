@@ -47,7 +47,7 @@ use MetaScheduler::Mailer;
 
 # Job object
 # Do we need to keep this if it's only a parsing step?
-my $job;
+#my $job;
 
 has task_id => (
     is     => 'rw',
@@ -136,7 +136,7 @@ sub BUILD {
     # First case, we're given a JSON job definition to load
     # in to the database
 	eval {
-	    $job = decode_json($args->{job});
+	    $self->{job} = decode_json($args->{job});
 	};
 	if($@) {
 	    # Error evaluating job's json
@@ -145,7 +145,7 @@ sub BUILD {
 
 	# Validate the submission and load the job in to the database
 
-	$self->task_id($self->create_job($job));
+	$self->task_id($self->create_job($self->{job}));
 	$self->load_job($self->task_id);
 	$self->load_components($self->task_id);
 	$self->load_mailer($self->task_id);
@@ -231,7 +231,7 @@ sub read_job {
     } 
 
     eval {
-	$job = decode_json($json);
+	$self->{job} = decode_json($json);
     };
     if($@) {
 	# Error decoding JSON

@@ -127,8 +127,10 @@ sub process_requests {
             # just read means there is a complete request waiting
             # to be fulfilled.  If there is, set $ready{$client}
             # to the requests waiting to be fulfilled.
-            while ($inbuffer{$client} =~ s/(.*\n)//) {
-                push( @{$ready{$client}}, $1 );
+#            while ($inbuffer{$client} =~ s/(.*)\nblahEOF\n$//) {
+            while ($inbuffer{$client} =~ s/EOF\n$//) {
+                push( @{$ready{$client}}, $inbuffer{$client});
+		undef $inbuffer{$client};
             }
 	}
     }

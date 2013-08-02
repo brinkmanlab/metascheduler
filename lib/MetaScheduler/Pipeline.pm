@@ -36,13 +36,13 @@ use GraphViz2;
 use feature qw{ switch };
 use List::MoreUtils qw(uniq);
 
-my $pipeline;
+#my $pipeline;
 my $logger;
 my $cfg;
-my $scheduler;
-my $g;
-my $job;
-my $last_run = 0;
+#my $scheduler;
+#my $g;
+#my $job;
+#my $last_run = 0;
 
 has 'errors' => (
       traits  => ['Counter'],
@@ -65,9 +65,9 @@ sub BUILD {
     my $self = shift;
     my $args = shift;
 
-    $logger = Log::Log4perl->get_logger;
+    $logger = Log::Log4perl->get_logger unless($logger);
 
-    $cfg =  MetaScheduler::Config->config;
+    $cfg =  MetaScheduler::Config->config unless($cfg);
 
     die "Error, no pipeline file given" unless($args->{pipeline});
 
@@ -92,7 +92,7 @@ sub read_pipeline {
     } 
 
     eval {
-	$pipeline = decode_json($json);
+	$self->{pipeline} = decode_json($json);
     };
     if($@) {
 	# Error decoding JSON
@@ -105,9 +105,9 @@ sub build_tree {
     my ($self) = @_;
 
     $logger->debug("Building the graph for the pipeline");
-    $g = Graph::Directed->new;
+    $self->{g} = Graph::Directed->new;
 
-    foreach my $component (@{$pipeline->{'components'}}) {
+    foreach my $component (@{$self->{pipeline}->{'components'}}) {
 	my $name = $component->{name};
 	$logger->debug("Adding component $name");
 	$self->add_edges($name, $component->{on_success}, 'success')
@@ -118,20 +118,20 @@ sub build_tree {
 
 	# Save the meta information like status_test
 	# to the node for referencing later
-	$g->set_vertex_attribute($name, "status_test", $component->{status_test});
+	$self->{g}->set_vertex_attribute($name, "status_test", $component->{status_test});
     }
     
-    unless($g->is_dag()) {
-	$logger->error("Error, pipeline for $pipeline->{job_type} isn't a directed acyclic graph");
-	die "Error, pipeline for $pipeline->{job_type} isn't a directed acyclic graph";
+    unless($self->{g}->is_dag()) {
+	$logger->error("Error, pipeline for $self->{pipeline}->{job_type} isn't a directed acyclic graph");
+	die "Error, pipeline for $self->{pipeline}->{job_type} isn't a directed acyclic graph";
     }
 
-    if($g->isolated_vertices()) {
-	$logger->error("Error, pipeline for $pipeline->{job_type} has unreachable components");
-	die "Error, pipeline for $pipeline->{job_type} has unreachable component";
+    if($self->{g}->isolated_vertices()) {
+	$logger->error("Error, pipeline for $self->{pipeline}->{job_type} has unreachable components");
+	die "Error, pipeline for $self->{pipeline}->{job_type} has unreachable component";
     }
 
-    print "Graph:\n$g\n";
+    print "Graph:\n$self->{g}\n";
 
 }
 
@@ -145,30 +145,30 @@ sub build_tree {
 sub validate_state {
     my $self = shift;
 
-    unless($g) {
+    unless($self->{g}) {
 	$logger->error("Error, no job seems to be attached to this task, can't validate");
 	die "Error, no job seems to be attached to this task, can't validate";
     }
 
-    vertex: foreach my $v ($g->vertices) {
-	my $c = $job->find_component($v);
+    vertex: foreach my $v ($self->{g}->vertices) {
+	my $c = $self->{job}->find_component($v);
 
-	$logger->debug("Evaluating state for task " . $job->task_id . " component $v");
+	$logger->debug("Evaluating state for task " . $self->{job}->task_id . " component $v");
 
 	unless($c) {
-	    $logger->error("Error, we can't find component $v in job " . $job->task_id);
+	    $logger->error("Error, we can't find component $v in job " . $self->{job}->task_id);
 	    next vertex;
 	}
 
 	# Fetch the status we think the job is
-	my $state = $job->find_component_state($v);
+	my $state = $self->{job}->find_component_state($v);
 
 	# We only care if we think it's running
 	next vertex unless($state eq 'RUNNING');
-	$logger->debug("Component $v for task " . $job->task_id . " is RUNNING, validating");
+	$logger->debug("Component $v for task " . $self->{job}->task_id . " is RUNNING, validating");
 
 	# Check the scheduler to see if the job is there
-	my $sched_state = $scheduler->fetch_job_state($c->qsub_id);
+	my $sched_state = $self->{scheduler}->fetch_job_state($c->qsub_id);
 	$logger->debug("Scheduler says component $v is in state $sched_state");
 
 	my $test_state;
@@ -194,13 +194,13 @@ sub validate_state {
 	# Now we have to deal with jobs that have exited the scheduler
 	# and what their current state actually is, did it succeed,
 	# fail, or die silently?
-	$logger->debug("Setting state for job " . $job->task_id . " to $test_state");
+	$logger->debug("Setting state for job " . $self->{job}->task_id . " to $test_state");
 	given($test_state) {
-	    when ("COMPLETE")   { $job->change_state({component_type => $v,
+	    when ("COMPLETE")   { $self->{job}->change_state({component_type => $v,
 						      state => 'COMPLETE' }); }
-	    when ("ERROR")      { $job->change_state({component_type => $v,
+	    when ("ERROR")      { $self->{job}->change_state({component_type => $v,
 						      state => 'ERROR' }); }
-	    when ("RUNNING")    { $job->change_state({component_type => $v,
+	    when ("RUNNING")    { $self->{job}->change_state({component_type => $v,
 						      state => 'ERROR' }); }
 	}
     }
@@ -214,29 +214,29 @@ sub confirm_state {
     my $self = shift;
     my $c = shift;
 
-    return undef unless($g->has_vertex($c));
+    return undef unless($self->{g}->has_vertex($c));
 
-    my $cmd = $g->get_vertex_attribute($c, 'status_test');
+    my $cmd = $self->{g}->get_vertex_attribute($c, 'status_test');
 
 
-    $cmd =~ s/\%\%jobid\%\%/$job->job_id/e;
-    $logger->debug("Running command $cmd to check state of job " . $job->task_id);
+    $cmd =~ s/\%\%jobid\%\%/$self->{job}->job_id/e;
+    $logger->debug("Running command $cmd to check state of job " . $self->{job}->task_id);
 
     my $rv = system($cmd);
 
     if($rv == -1) {
-	$logger->error("Failed to execute $cmd for job " . $job->task_id);
+	$logger->error("Failed to execute $cmd for job " . $self->{job}->task_id);
 	return "ERROR";
        
     } elsif($rv & 4) {
-	$logger->debug("Task " . $job->task_id . " completed with an error");
+	$logger->debug("Task " . $self->{job}->task_id . " completed with an error");
 	return "ERROR";
     } elsif($rv & 8) {
-	$logger->debug("Task " . $job->task_id . " seems to still be running");
+	$logger->debug("Task " . $self->{job}->task_id . " seems to still be running");
 	return "RUNNING";
     }
 
-    $logger->debug("Task " . $job->task_id . " seems to have completed successfully");
+    $logger->debug("Task " . $self->{job}->task_id . " seems to have completed successfully");
     return "COMPLETE";
 
 }
@@ -246,31 +246,31 @@ sub run_component {
     my $ctype = shift;
 
     # We can't run on a pipeline with no job attached
-    return undef unless($job && $g);
+    return undef unless($self->{job} && $self->{g});
 
-    my $c = $job->find_component($ctype);
+    my $c = $self->{job}->find_component($ctype);
     unless($c) {
-	$logger->error("Component $ctype not found in job " . $job->task_id . " can't start");
+	$logger->error("Component $ctype not found in job " . $self->{job}->task_id . " can't start");
 	return undef;
     }
 
-    $logger->debug("Starting component $ctype for job " . $job->task_id);
+    $logger->debug("Starting component $ctype for job " . $self->{job}->task_id);
     
     # Send the start request to the scheduler object
     # Name it with the task_id+component_type
-    my $sched_id = $scheduler->submit_job($job->task_id . "_$ctype", $c->qsub_file);
+    my $sched_id = $self->{scheduler}->submit_job($self->{job}->task_id . "_$ctype", $c->qsub_file);
 
     # Did the task submit successfully?
     if($sched_id > 0) {
 	# Update the assigned scheduler task number in the component
-	$job->change_state({state => "RUNNING",
+	$self->{job}->change_state({state => "RUNNING",
 			    component_type => $ctype,
 			    qsub_id => $sched_id
 			   });
     } else {
 	# We couldn't submit the job to the scheduler, hold the job for review
-	$logger->error("Error, can not submit component $ctype to scheduler for job " . $job->task_id . ", holding job");
-	$job->change_state({state => "HOLD"});
+	$logger->error("Error, can not submit component $ctype to scheduler for job " . $self->{job}->task_id . ", holding job");
+	$self->{job}->change_state({state => "HOLD"});
     }
 }
 
@@ -280,15 +280,15 @@ sub add_edges {
     $logger->debug("Adding edges for component $origin, label $label, verticies $vertices");
 
     foreach my $d (split ',', $vertices) {
-	$g->add_edge($origin, $d);
-	$g->set_edge_attribute($origin, $d, $label, 1);
+	$self->{g}->add_edge($origin, $d);
+	$self->{g}->set_edge_attribute($origin, $d, $label, 1);
     }
 }
 
 sub find_entry_points {
     my $self = shift;
 
-    my @v = $g->source_vertices();
+    my @v = $self->{g}->source_vertices();
 
 #    print Dumper @v;
     return @v;
@@ -296,16 +296,16 @@ sub find_entry_points {
 
 sub attach_job {
     my $self = shift;
-    $job = shift;
+    $self->{job} = shift;
 
     $self->overlay_job;
 
-    my $sched = $job->job_scheduler;
+    my $sched = $self->{job}->job_scheduler;
     # will this work?
-    # $scheduler = "MetaScheduler::$job->job_scheduler"->instance();
+    # $self->{scheduler} = "MetaScheduler::$job->job_scheduler"->instance();
     eval {
 	no strict 'refs';
-	$scheduler = "MetaScheduler::$sched"->instance();
+	$self->{scheduler} = "MetaScheduler::$sched"->instance();
     }
 }
 
@@ -316,12 +316,12 @@ sub run_iteration {
     my $self = shift;
 
     # We can't run an iteration if there's no job attached
-    unless($job && $g) {
+    unless($self->{job} && $self->{g}) {
 	$logger->error("Error, can't run an iteration on pipeline, nob job attached");
 	die "Error, can't run an iteration on pipeline, nob job attached";
     }
 
-    $logger->debug("Running iteration of job " . $job->job_type . " with job_id " . $job->job_id);
+    $logger->debug("Running iteration of job " . $self->{job}->job_type . " with job_id " . $self->{job}->job_id);
 
     # Before we begin an iteration, validate the state of the job
     $self->validate_state();
@@ -367,14 +367,14 @@ sub walk_and_run {
 
     $logger->debug("Walking component $v");
 
-    my $state = $job->find_component_state($v);
+    my $state = $self->{job}->find_component_state($v);
 
-    given($job->find_component_state($v)) {
+    given($self->{job}->find_component_state($v)) {
 	when ("PENDING")    { 
 	    # Unless all the predecessors are complete or error
 	    # we can't run this component
 	    $logger->debug("Component $v is pending, checking parents");
-#	    foreach my $u ($g->predecessors($v)) {
+#	    foreach my $u ($self->{g}->predecessors($v)) {
 #		my $s = $job->find_component_state($u);
 #		return unless(($s eq 'COMPLETE') || ($s eq 'ERROR'));
 #	    }
@@ -387,14 +387,14 @@ sub walk_and_run {
 	}
 	when ("COMPLETE")   { 
 	    $logger->debug("Component $v complete, walking children");
-	    foreach my $u ($g->successors($v)) {
+	    foreach my $u ($self->{g}->successors($v)) {
 		$self->walk_and_run($u);
 	    }
 	}
 	when ("HOLD")       { return; }
 	when ("ERROR")      { 
 	    $logger->debug("Component $v error, walking children");
-	    foreach my $u ($g->successors($v)) {
+	    foreach my $u ($self->{g}->successors($v)) {
 		$self->walk_and_run($u);
 	    }
 	}
@@ -407,10 +407,10 @@ sub is_runable {
     my $self = shift;
     my $v = shift;
 
-    return 0 unless($job->find_component_state($v) eq "PENDING");
+    return 0 unless($self->{job}->find_component_state($v) eq "PENDING");
 
-    foreach my $u ($g->predecessors($v)) {
-	my $s = $job->find_component_state($u);
+    foreach my $u ($self->{g}->predecessors($v)) {
+	my $s = $self->{job}->find_component_state($u);
 	return 0 unless(($s eq 'COMPLETE') || ($s eq 'ERROR'));
     }
 
@@ -422,7 +422,7 @@ sub is_runable {
 sub fetch_job {
     my $self = shift;
 
-    return $job if($job);
+    return $self->{job} if($self->{job});
 
     return undef;
 }
@@ -432,7 +432,7 @@ sub fetch_job {
 sub fetch_task_id {
     my $self = shift;
 
-    return $job->task_id if($job);
+    return $self->{job}->task_id if($self->{job});
 
     return 0;
 }
@@ -453,45 +453,45 @@ sub fetch_task_id {
 sub update_job_status {
     my $self = shift;
 
-    my $states = $job->find_all_state;
+    my $states = $self->{job}->find_all_state;
 
     if($states->{"RUNNING"}) {
-	$job->run_status("RUNNING");
+	$self->{job}->run_status("RUNNING");
 	return;
     } elsif($states->{"HOLD"}) {
-	$job->run_status("HOLD");
+	$self->{job}->run_status("HOLD");
 	return;
     }
 
     my @starts = $self->find_entry_points();
     my $started = 0;
     foreach my $v (@starts) {
-	$started = 1 unless($job->find_component_state($v) eq "PENDING");
+	$started = 1 unless($self->{job}->find_component_state($v) eq "PENDING");
     }
     unless($started) {
-	$job->run_status("PENDING");
+	$self->{job}->run_status("PENDING");
 	return;
     }
 
     my $ended = 1;
     my $error = 0;
-    foreach my $v ($g->sink_verticies()) {
-	my $s = $job->find_component_state($v);
+    foreach my $v ($self->{g}->sink_verticies()) {
+	my $s = $self->{job}->find_component_state($v);
 	$ended = 0 unless($s eq 'COMPLETE' ||
 			  $s eq 'ERROR');
 	$error = 1 if($s eq 'ERROR');
     }
     if($ended) {
 	if($error) {
-	    $job->run_status('ERROR');
+	    $self->{job}->run_status('ERROR');
 	}
-	$job->run_status('COMPLETE');
+	$self->{job}->run_status('COMPLETE');
 	return;
     }
 
     # Now we're in to the weird states, either stuck or
     # just nothing happens to be in the queue
-    $logger->error("We seem to be stuck in this job, that's not good. Job:" . $job->task_id);
+    $logger->error("We seem to be stuck in this job, that's not good. Job:" . $self->{job}->task_id);
 
 }
 
@@ -503,7 +503,7 @@ sub find_runable {
     my $self = shift;
     my $v = shift;
 
-    return unless($job && $g);
+    return unless($self->{job} && $self->{g});
 
     my $runable;
     $logger->debug("Finding runable components for pipeline");
@@ -519,7 +519,7 @@ sub find_runable {
 		next;
 	    }
 
-	    foreach my $u ($g->successors($start)) {
+	    foreach my $u ($self->{g}->successors($start)) {
 		push @{$runable}, $self->find_runable($u);
 	    }
 
@@ -531,9 +531,9 @@ sub find_runable {
     }
 
     $logger->debug("Checking state for $v");
-    my $state = $job->find_component_state($v);
+    my $state = $self->{job}->find_component_state($v);
 
-    given($job->find_component_state($v)) {
+    given($self->{job}->find_component_state($v)) {
 	when ("PENDING")    { 
 	    # Unless all the predecessors are complete or error
 	    # we can't run this component
@@ -550,7 +550,7 @@ sub find_runable {
 	}
 	when ("COMPLETE")   { 
 	    $logger->debug("Component $v complete, walking children");
-	    foreach my $u ($g->successors($v)) {
+	    foreach my $u ($self->{g}->successors($v)) {
 		push @{$runable}, $self->find_runable($u);
 	    }
 	    ($runable ? return @{$runable} : return );
@@ -558,7 +558,7 @@ sub find_runable {
 	when ("HOLD")       { return; }
 	when ("ERROR")      { 
 	    $logger->debug("Component $v error, walking children");
-	    foreach my $u ($g->successors($v)) {
+	    foreach my $u ($self->{g}->successors($v)) {
 		push @{$runable}, $self->find_runable($u);
 	    }
 	    ($runable ? return @{$runable} : return );
@@ -571,11 +571,11 @@ sub find_runable {
 sub overlay_job {
     my $self = shift;
 
-    unless(($job->run_status eq "RUNNING") ||
-	   ($job->run_status eq "ERROR") ||
-	   ($job->run_status eq "COMPLETE")) {
+    unless(($self->{job}->run_status eq "RUNNING") ||
+	   ($self->{job}->run_status eq "ERROR") ||
+	   ($self->{job}->run_status eq "COMPLETE")) {
 
-	$logger->info("Job is in state " . $job->run_state . ", not overlaying over pipeline");
+	$logger->info("Job is in state " . $self->{job}->run_state . ", not overlaying over pipeline");
 	return;
     }
 
@@ -597,11 +597,11 @@ sub overlay_walk_component {
     $logger->debug("Walking component $v");
 
     # Is is a sink vertex, or a vertex with no children
-    if($g->is_sink_vertex($v)) {
+    if($self->{g}->is_sink_vertex($v)) {
 	$logger->debug("Vertex $v is a sink, stopping");
 	return;
     } else {
-	my $state = $job->find_component_state($v);
+	my $state = $self->{job}->find_component_state($v);
 
 	if($state eq "COMPLETE") {
 	    # Job is complete, we remove the on_failure edges
@@ -635,7 +635,7 @@ sub overlay_walk_component {
 	}
 
 	# Recursively walk the remaining edges, if any
-	foreach my $u ($g->successors($v)) {
+	foreach my $u ($self->{g}->successors($v)) {
 	    $self->overlay_walk_component($u);
 	}
     }
@@ -646,14 +646,14 @@ sub remove_edges {
     my $v = shift;
     my $attr = shift;
 
-    foreach my $u ($g->successors($v)) {
+    foreach my $u ($self->{g}->successors($v)) {
 
-	if($g->has_edge_attribute($v, $u, $attr)) {
+	if($self->{g}->has_edge_attribute($v, $u, $attr)) {
 	    $logger->debug("Removing attribute from edge $v, $u: $attr");
-	    $g->delete_edge_attribute($v, $u, $attr);
-	    unless($g->has_edge_attributes($v, $u)) {
+	    $self->{g}->delete_edge_attribute($v, $u, $attr);
+	    unless($self->{g}->has_edge_attributes($v, $u)) {
 		$logger->debug("Removing edge $v, $u with value $attr");
-		$g->delete_edge($v, $u);
+		$self->{g}->delete_edge($v, $u);
 		$self->scrub_dangling_vertices($u);
 	    } else {
 		$logger->debug("Multiple attributes on edge $v, $u, not deleting");
@@ -671,12 +671,12 @@ sub scrub_dangling_vertices {
     my $self = shift;
     my $v = shift;
 
-    return unless($g->is_predecessorless_vertex($v));
+    return unless($self->{g}->is_predecessorless_vertex($v));
 
-    my @successors = $g->successors($v);
+    my @successors = $self->{g}->successors($v);
 
     $logger->debug("Vertex $v has no parents, removing");
-    $g->delete_vertex($v);
+    $self->{g}->delete_vertex($v);
 
     foreach my $u (@successors) {
 	$self->scrub_dangling_vertices($u);
@@ -687,11 +687,11 @@ sub fetch_component {
     my ($self, $name) = @_;
 
     die "Error, no pipeline loaded"
-	unless($pipeline);
+	unless($self->{pipeline});
 
     $logger->debug("Returning pipeline component $name");
 
-    foreach my $component (@{$pipeline->{'components'}}) {
+    foreach my $component (@{$self->{pipeline}->{'components'}}) {
 	return $component
 	    if($name eq $component->{'name'});
     }
@@ -702,8 +702,8 @@ sub fetch_component {
 sub fetch_status {
     my $self = shift;
 
-    if($job) {
-	return $job->run_status;
+    if($self->{job}) {
+	return $self->{job}->run_status;
     }
 
     return undef;
@@ -714,26 +714,26 @@ sub graph {
     my $fields = shift;
 
     # We can do a graph unless we have a job attached
-    return unless($job);
+    return unless($self->{job});
 
     my $gv = GraphViz2->new(global => {directed => 1});
 
-    foreach my $v ($g->vertices) {
+    foreach my $v ($self->{g}->vertices) {
 	$self->graph_node($gv, $v, $fields);
 #	$gv->add_node(name => $v);
     }
 
-    foreach my $e ($g->edges) {
-	if($g->has_edge_attribute($e->[0], $e->[1], 'success') && $g->has_edge_attribute($e->[0], $e->[1], 'failure')) {
+    foreach my $e ($self->{g}->edges) {
+	if($self->{g}->has_edge_attribute($e->[0], $e->[1], 'success') && $self->{g}->has_edge_attribute($e->[0], $e->[1], 'failure')) {
 	    $gv->add_edge(from => $e->[0], to => $e->[1]);
-	} elsif($g->has_edge_attribute($e->[0], $e->[1], 'success')) {
+	} elsif($self->{g}->has_edge_attribute($e->[0], $e->[1], 'success')) {
 	    $gv->add_edge(from => $e->[0], to => $e->[1], color => 'green', label => 'on success');
-	} elsif($g->has_edge_attribute($e->[0], $e->[1], 'failure')) {
+	} elsif($self->{g}->has_edge_attribute($e->[0], $e->[1], 'failure')) {
 	    $gv->add_edge(from => $e->[0], to => $e->[1], color => 'red', label => 'on failure');
 	}
     }
 
-    $gv->run(format => 'svg', output_file => $cfg->{jobs_dir} . '/' . $job->task_id . '/' . "graph.svg");
+    $gv->run(format => 'svg', output_file => $cfg->{jobs_dir} . '/' . $self->{job}->task_id . '/' . "graph.svg");
 }
 
 sub graph_node {
@@ -744,7 +744,7 @@ sub graph_node {
 
     my $c;
 
-    return unless($c = $job->find_component($v));
+    return unless($c = $self->{job}->find_component($v));
 
 #    print Dumper MetaScheduler::Component->meta->get_attribute_list;
 
@@ -781,7 +781,9 @@ sub graph_node {
 }
 
 sub dump_graph {
-    print "Graph $g\n";
+    my $self = shift;
+
+    print "Graph $self->{g}\n";
 }
 
 1;
