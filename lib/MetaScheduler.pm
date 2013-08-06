@@ -36,6 +36,8 @@ use MetaScheduler::Config;
 use MetaScheduler::Server;
 use MetaScheduler::Pipeline;
 use MetaScheduler::Job;
+use MetaScheduler::Authentication;
+use MetaScheduler::ProcessReq;
 use Scalar::Util 'reftype';
 use Log::Log4perl;
 
@@ -87,6 +89,12 @@ sub BUILD {
 
     Log::Log4perl::init($log_cfg);
     $logger = Log::Log4perl->get_logger;
+
+    # Initialize the TCP request handler class
+    MetaScheduler::ProcessReq->initialize();
+
+    # Initialize the authentication module
+    MetaScheduler::Authentication->initialize;
 
     # Initialize the schedulers we're using
     if(reftype $cfg->{schedulers} eq 'ARRAY') {
@@ -237,6 +245,8 @@ sub process_request {
     my $self = shift;
     my $req = shift;
 
+#    my ($ret_code, $ret_str) = MetaScheduler::ProcessReq->process_request($self, $req);
+
     return "SUCCESS\n";
 }
 
@@ -295,6 +305,36 @@ sub loadJobs {
 #	print $p->task_id . " ". $p ."\n";
 #    }
 #    print "\n";
+}
+
+sub addJob {
+    my $self = shift;
+    my $json = shift;
+
+    my $pipeline_base = $cfg->{pipelines};
+    my $job; my $pipeline;
+
+    print "Adding job\n";
+    print Dumper $json;
+
+    eval {
+	$pipeline = MetaScheduler::Pipeline->new({pipeline => $pipeline_base . '/' . lc($json->{job_type}) . '.config'});
+	$job = MetaScheduler::Job->new({decoded_job => $json});
+	$pipeline->attach_job($job);
+	$pipeline->validate_state();
+	$pipeline->graph();
+    };
+    if($@) {
+	$logger->error("Error, can't add job: $@");
+	return 0;
+    } else {
+	my $name = $self->concatName($job->job_type, $job->job_name);
+	$logger->debug("Finished adding job $name, saving.");
+	$self->set_job($name => $pipeline);
+    }
+
+    return $job->task_id;
+
 }
 
 sub find_by_id {

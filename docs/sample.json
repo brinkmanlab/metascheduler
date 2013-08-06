@@ -1,0 +1,42 @@
+{
+  "version": "1.0",
+  "userid": "lairdm",
+  "password": "12345",
+  "action": "submit",
+  "record": {
+    "job_name": "IV 56439",
+    "job_id":   56439,
+    "job_type": "IslandViewer",
+    "job_scheduler": "Torque",
+    "job_email": [
+        {
+            "email":  "lairdm@sfu.ca"
+        },
+        {
+            "email":  "user@emailaddress"
+        }
+    ],
+    "components": [
+        {
+          "component_type": "cvtree",
+          "qsub_file": "/home/shared/Modules/islandviewer/custom_jobs/56434/cvtree.qsub"
+        },
+        {
+          "component_type": "sigi",
+          "qsub_file": "/home/shared/Modules/islandviewer/custom_jobs/56434/sigi.qsub"
+        },
+        {
+          "component_type": "islandpick",
+          "qsub_file": "/home/shared/Modules/islandviewer/custom_jobs/56434/dimob.qsub"
+        },
+        {
+          "component_type": "dimob",
+          "qsub_file": "/home/shared/Modules/islandviewer/custom_jobs/56434/dimob.qsub"
+        },
+        {
+          "component_type": "summary",
+          "qsub_file": "/home/shared/Modules/islandviewer/custom_jobs/56434/summary.qsub"
+        }
+    ]
+  }
+}

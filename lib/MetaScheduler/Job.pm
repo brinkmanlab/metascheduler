@@ -132,15 +132,25 @@ sub BUILD {
 
     $cfg =  MetaScheduler::Config->config;
 
-    if($args->{job}) {
+    if($args->{job} || $args->{decoded_job}) {
     # First case, we're given a JSON job definition to load
     # in to the database
-	eval {
-	    $self->{job} = decode_json($args->{job});
-	};
-	if($@) {
-	    # Error evaluating job's json
-	    die "Error evaluating job: $args->{job}, $@";
+	# If it's still in json decode it, otherwise a pre-decoded
+	# version will be in decoded_job
+	if($args->{job}) {
+	    $logger->debug("Adding a new job from json");
+
+	    eval {
+		$self->{job} = decode_json($args->{job});
+	    };
+	    if($@) {
+		# Error evaluating job's json
+		die "Error evaluating job: $args->{job}, $@";
+	    }
+	} else {
+	    $logger->debug("Adding a new job from decoded json");
+
+	    $self->{job} = $args->{decoded_job};
 	}
 
 	# Validate the submission and load the job in to the database
@@ -249,11 +259,11 @@ sub create_job {
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
 
-    my $sqlstmt = qq{INSERT INTO task (job_id, job_type, job_name, job_scheduler, extra_parameters, priority) VALUES (?, ?, ?, ?, ?)};
+    my $sqlstmt = qq{INSERT INTO task (job_id, job_type, job_name, job_scheduler, extra_parameters, priority) VALUES (?, ?, ?, ?, ?, ?)};
     my $add_job = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
     $add_job->execute($args->{job_id}, $args->{job_type}, $args->{job_name}, $args->{job_scheduler} || $cfg->{default_scheduler}, $args->{extra_parameters} || '', $args->{priority} || 2) or
-	die "Error inserting job ($args->{job_id}, $args->{job_type}, $args->{job_name})";
+	die "Error inserting job ($args->{job_id}, $args->{job_type}, $args->{job_name}, " . ($args->{job_scheduler} || $cfg->{default_scheduler}) . ", " . ($args->{extra_parameters} || '') . ", " . ($args->{priority} || 2) . "): $DBI::errstr";
 
     my $task_id = $dbh->last_insert_id( undef, undef, undef, undef );
     $self->task_id($task_id);

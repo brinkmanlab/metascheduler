@@ -571,13 +571,16 @@ sub find_runable {
 sub overlay_job {
     my $self = shift;
 
-    unless(($self->{job}->run_status eq "RUNNING") ||
-	   ($self->{job}->run_status eq "ERROR") ||
-	   ($self->{job}->run_status eq "COMPLETE")) {
+# I don't rememberwhy we wouldn't want to overlay the job
+# in other states, seems silly, we need to overlay
+# pending jobs if we're adding them new
+#    unless(($self->{job}->run_status eq "RUNNING") ||
+#	   ($self->{job}->run_status eq "ERROR") ||
+#	   ($self->{job}->run_status eq "COMPLETE")) {
 
-	$logger->info("Job is in state " . $self->{job}->run_state . ", not overlaying over pipeline");
-	return;
-    }
+#	$logger->info("Job is in state " . $self->{job}->run_status . ", not overlaying over pipeline");
+#	return;
+#    }
 
     my @starts = $self->find_entry_points;
 
