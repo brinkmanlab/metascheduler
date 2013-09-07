@@ -83,6 +83,7 @@ sub BUILD {
 					     user => $cfg->{'dbuser'}, 
 					     pass => $cfg->{'dbpass'} });
 
+    # Initialize the logging
     my $log_cfg = $cfg->{'logger_conf'};
     die "Error, can't access logger_conf $log_cfg"
 	unless(-f $log_cfg && -r $log_cfg);
@@ -245,9 +246,9 @@ sub process_request {
     my $self = shift;
     my $req = shift;
 
-#    my ($ret_code, $ret_str) = MetaScheduler::ProcessReq->process_request($self, $req);
+    my ($ret_code, $ret_str) = MetaScheduler::ProcessReq->process_request($self, $req);
 
-    return "SUCCESS\n";
+    return "$ret_str\n";
 }
 
 sub initializeMetaScheduler {
@@ -337,6 +338,126 @@ sub addJob {
 
 }
 
+# Return a json list of the jobs, limit by the
+# job type if requested
+
+sub showJob {
+    my $self = shift;
+    my $type = shift;
+
+    my $json = '['; 
+    my $records = 0;
+
+    for my $name ($self->fetch_keys) {
+	my $pipeline = $self->get_job($name);
+
+	# Fetch the json from the pipeline
+	my ($cur_json, $ret_type) = $pipeline->dump_json;
+
+	# If we're limiting by type...
+	next if($type && (lc($type) ne lc($ret_type)));
+
+	# Add the record to the list
+	$json .= ',' if($records > 0);
+	$json .= $cur_json . "\n";
+	$records++;
+    }
+
+    $json .= ']';
+
+    return ($records, $json);
+}
+
+sub statusJob {
+    my $self = shift;
+    my $task_id = shift;
+
+    my $pipeline = $self->find_by_id($task_id);
+
+    # task_id doesn't exist
+    return 0 unless($pipeline);
+
+    return $pipeline->fetch_status;
+}
+
+sub alterJob {
+    my $self = shift;
+    my $task_id = shift;
+    my $action = shift;
+    my $component = shift;
+
+    my $pipeline = $self->find_by_id($task_id);
+
+    # task_id doesn't exist
+    return 0 unless($pipeline);
+
+    my $res = 0;
+
+    if($component) {
+	$logger->debug("Updating $task_id, component $component to status $action");
+	$res = $pipeline->set_state($action, $component);
+    } else {
+	$logger->debug("Updating $task_id to status $action");
+	if(lc($action) eq 'hold') {
+	    $res = $pipeline->set_state("HOLD");
+	} elsif(lc($action) eq 'pending') {
+	    $res = $pipeline->set_state("PENDING");
+	} elsif(lc($action) eq 'delete') {
+	    $res = $pipeline->set_state("DELETED");
+	}
+    }
+
+    return $res;
+}
+
+sub resetJob {
+    my $self = shift;
+    my $task_id = shift;
+
+    my $pipeline = $self->find_by_id($task_id);
+
+    # task_id doesn't exist
+    return 0 unless($pipeline);
+
+    $pipeline->reset_errors;
+
+    return 1;
+}
+
+# We need a way to obsfucate the url, maybe
+# it should be passed by an intermediary cgi,
+# but that will be up to the client package
+# using the api
+
+sub graphJob {
+    my $self = shift;
+    my $task_id = shift;
+
+    # Let's check the job exists as a sanity check
+    # But should we?  If it's a really old job...
+    my $pipeline = $self->find_by_id($task_id);
+
+    # task_id doesn't exist
+    return 0 unless($pipeline);
+
+    # First check if the graph file exists, build the path
+    my $graph_file = $cfg->{jobs_dir} . '/' . $task_id . '/' . $cfg->{graph_name};
+
+    unless( -f $graph_file && -r $graph_file ) {
+	$logger->error("Error, graph file $graph_file does not exist or isn't readable");
+	return 0;
+    }
+
+    # Next build the url, which in apache should point at the same location!
+    my $url = $cfg->{url_base};
+    $url .= ($url =~ /\/$/ ? '' : '/');
+    $url .= $task_id . '/' . $cfg->{graph_name};
+
+    return $url;
+}
+
+# Return the pipeline object based on the task_id
+
 sub find_by_id {
     my $self = shift;
     my $task_id = shift;
@@ -386,6 +507,12 @@ sub fetchDefaultScheduler {
 	return $cfg->{schedulers};
     }
 
+}
+
+sub getCfg {
+    my $self = shift;
+
+    return $cfg;
 }
 
 sub finish {

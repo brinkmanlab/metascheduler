@@ -37,11 +37,13 @@ use Tie::RefHash;
 use Fcntl qw/O_NONBLOCK/;
 #use Fcntl qw/F_GETFL, F_SETFL, O_NONBLOCK/;
 use MetaScheduler::Config;
+use Log::Log4perl;
 
 my $logger;
 my $cfg;
 my $handle;
 my $alarm_timeout = 60;
+my $protocol_version = '1.0';
 
 sub BUILD {
     my $self = shift;

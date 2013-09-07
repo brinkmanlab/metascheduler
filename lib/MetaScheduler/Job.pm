@@ -55,8 +55,9 @@ has task_id => (
 );
 
 has run_status => (
-    is     => 'rw',
-    isa    => enum([qw(PENDING COMPLETE HOLD ERROR RUNNING)])
+    is      => 'rw',
+    isa     => enum([qw(PENDING COMPLETE HOLD ERROR RUNNING DELETED)]),
+    trigger => \&update_status,
 );
 
 has job_id => (
@@ -335,6 +336,10 @@ sub change_state {
 	    $dbh->do("UPDATE task SET run_status = \"ERROR\", complete_date= NOW() WHERE task_id = ?", {}, $self->task_id);
 	} elsif(uc($args->{state}) eq 'RUNNING') {
 	    $dbh->do("UPDATE task SET run_status = \"RUNNING\", start_date= NOW() WHERE task_id = ?", {}, $self->task_id);
+	} elsif(uc($args->{state}) eq 'DELETED') {
+	    $dbh->do("UPDATE task SET run_status = \"DELETED\" WHERE task_id = ?", {}, $self->task_id);
+	} elsif(uc($args->{state}) eq 'PENDING') {
+	    $dbh->do("UPDATE task SET run_status = \"PENDING\" WHERE task_id = ?", {}, $self->task_id);
 	} else {
 	    $logger->error("State requested for job " . $self->task_id . " of $args->{state} doesn't exist!");
 	    die "State requested for job " . $self->task_id . " of $args->{state} doesn't exist";
@@ -345,6 +350,22 @@ sub change_state {
 
     }
 
+
+}
+
+sub update_status {
+    my $self = shift;
+    my $state = shift;
+    my $oldstate = shift;
+
+    # If it's the object's first creation, ignore the change
+    return unless $oldstate;
+
+    # If the object is not really changing, don't waste time
+    # updating the database
+    return if($state eq $oldstate);
+
+    $self->change_state({state => $state});
 
 }
 
@@ -374,6 +395,27 @@ sub find_component {
 
     $logger->debug("Component $component_type not found");
     return undef;
+}
+
+sub dump_components_json {
+    my $self = shift;
+    my $indent = shift;
+
+    my $records = 0;
+    my $json = "$indent" . "[";
+
+    foreach my $c (@{$self->components}) {
+
+	# Add the record to the list
+	$json .= ',' if($records > 0);
+	$json .= $c->dump_json($indent);
+	$json .= "\n";
+	$records++;
+    }
+
+    $json .= "$indent],\n";
+    $json .= "$indent\"records\": \"$records\"\n";
+
 }
 
 # Return a count of all the state types

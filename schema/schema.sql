@@ -5,7 +5,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE, LOCK TABLES ON `metascheduler`.* TO 'sched
 
 CREATE TABLE IF NOT EXISTS task (
   task_id int unsigned NOT NULL auto_increment,
-  run_status enum('PENDING','COMPLETE','HOLD','ERROR','RUNNING') DEFAULT 'PENDING',
+  run_status enum('PENDING','COMPLETE','HOLD','ERROR','RUNNING','DELETED') DEFAULT 'PENDING',
   job_id int unsigned not null,
   job_type VARCHAR(15) not null,
   job_name VARCHAR(25),

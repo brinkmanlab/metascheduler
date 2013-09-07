@@ -128,6 +128,8 @@ sub change_state {
 	$dbh->do("UPDATE component SET run_status = \"COMPLETE\", complete_date= NOW() WHERE component_id = ?", {}, $self->component_id);
     } elsif(uc($args->{state}) eq 'HOLD') {
 	$dbh->do("UPDATE component SET run_status = \"HOLD\" WHERE component_id = ?", {}, $self->component_id);
+    } elsif(uc($args->{state}) eq 'PENDING') {
+	$dbh->do("UPDATE component SET run_status = \"PENDING\" WHERE component_id = ?", {}, $self->component_id);
     } elsif(uc($args->{state}) eq 'ERROR') {
 	$dbh->do("UPDATE component SET run_status = \"ERROR\", complete_date= NOW() WHERE component_id = ?", {}, $self->component_id);
     } elsif(uc($args->{state}) eq 'RUNNING') {
@@ -200,6 +202,24 @@ sub load_component {
 	$logger->error("Can't find component $component_id");
 	die("Can't find component $component_id");
     }
+}
+
+sub dump_json {
+    my $self = shift;
+    my $indent = shift;
+
+    my $json = "$indent" . "{\n";
+    $json .= "$indent \"component_id\": \"" . $self->component_id . "\",\n";
+    $json .= "$indent \"component_type\": \"" . $self->component_type . "\",\n";
+    $json .= "$indent \"run_status\": \"" . $self->run_status . "\",\n";
+    $json .= "$indent \"extra_parameters\": \"" . $self->extra_parameters . "\",\n";
+    $json .= "$indent \"qsub_file\": \"" . $self->qsub_file . "\",\n";
+    $json .= "$indent \"qsub_id\": \"" . $self->qsub_id . "\",\n";
+    $json .= "$indent \"start_date\": \"" . $self->start_date . "\",\n";
+    $json .= "$indent \"complete_date\": \"" . $self->complete_date . "\"\n";
+    $json .= "$indent}";
+
+    return $json;
 }
 
 1;

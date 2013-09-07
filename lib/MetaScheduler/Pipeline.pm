@@ -258,7 +258,7 @@ sub run_component {
     
     # Send the start request to the scheduler object
     # Name it with the task_id+component_type
-    my $sched_id = $self->{scheduler}->submit_job($self->{job}->task_id . "_$ctype", $c->qsub_file);
+    my $sched_id = $self->{scheduler}->submit_job($self->{job}->task_id . "_$ctype", $c->qsub_file, $cfg->{jobs_dir});
 
     # Did the task submit successfully?
     if($sched_id > 0) {
@@ -267,6 +267,9 @@ sub run_component {
 			    component_type => $ctype,
 			    qsub_id => $sched_id
 			   });
+
+	# And make sure we're actually running!
+#	$self->{job}->change_state({state => 'RUNNING'});
     } else {
 	# We couldn't submit the job to the scheduler, hold the job for review
 	$logger->error("Error, can not submit component $ctype to scheduler for job " . $self->{job}->task_id . ", holding job");
@@ -454,6 +457,16 @@ sub update_job_status {
     my $self = shift;
 
     my $states = $self->{job}->find_all_state;
+
+    # If the job is in HOLD, it's been placed there
+    # for a reason, don't alter it.
+    return
+	if($self->{job}->run_status eq 'HOLD');
+
+    # If the job is in DELETED, don't try and run any more components,
+    # though we're welcome to finish running existing components
+    return
+	if($self->{job}->run_status eq 'DELETED');
 
     if($states->{"RUNNING"}) {
 	$self->{job}->run_status("RUNNING");
@@ -712,6 +725,33 @@ sub fetch_status {
     return undef;
 }
 
+sub set_state {
+    my $self = shift;
+    my $state = shift;
+    my $component = shift;
+
+    # If the job doesn't exist
+    return 0 unless($self->{job});
+
+    if($component) {
+	$self->{job}->change_state({state => $state, component_type => $component});
+    } else {
+	if(uc($state) eq "HOLD") {
+	    $self->{job}->change_state({state => "HOLD"});
+	} elsif(uc($state) eq "PENDING") {
+	    $self->{job}->change_state({state => "PENDING"});
+	    $self->reset_errors;
+	} elsif(uc($state) eq "DELETED") {
+	    $self->{job}->change_state({state => "DELETED"});
+	} else {
+	    return 0;
+	}
+    }
+
+    return 1;
+
+}
+
 sub graph {
     my $self = shift;
     my $fields = shift;
@@ -736,7 +776,7 @@ sub graph {
 	}
     }
 
-    $gv->run(format => 'svg', output_file => $cfg->{jobs_dir} . '/' . $self->{job}->task_id . '/' . "graph.svg");
+    $gv->run(format => 'svg', output_file => $cfg->{jobs_dir} . '/' . $self->{job}->task_id . '/' . $cfg->{graph_name});
 }
 
 sub graph_node {
@@ -781,6 +821,34 @@ sub graph_node {
 #    $gv->add_node(name => $v, shape => 'record', color => $colour, label => [$v, $c->run_status]);
 
     
+}
+
+sub dump_json {
+    my $self = shift;
+
+    my $job = $self->fetch_job;
+
+    # This should never happen, unless someone does something
+    # silly like call the dump routine on a pipeline with no
+    # job attached, which isn't really an error, there's just
+    # nothing to report
+    return unless($job);
+
+    my $json = "{\n";
+    $json .= " \"job_name\": \"" . $job->job_name . "\",\n";
+    $json .= " \"job_type\": \"" . $job->job_type . "\",\n";
+    $json .= " \"task_id\": \""  . $job->task_id  . "\",\n";
+    $json .= " \"run_status\": \"" . $job->run_status . "\",\n";
+    $json .= " \"extra_parameters\": \"" . $job->extra_parameters . "\",\n";
+    $json .= " \"priority\": \"" . $job->priority . "\",\n";
+    $json .= " \"job_scheduler\": \"" . $job->job_scheduler . "\",\n";
+    $json .= " \"submitted_date\": \"" . $job->submitted_date . "\",\n";
+    $json .= " \"start_date\": \"" . $job->start_date . "\",\n";
+    $json .= " \"complete_date\": \"" . $job->complete_date . "\",\n";
+    $json .= " \"components\": " . $job->dump_components_json("\t") . "\n";
+    $json .= "}";
+
+    return ($json, $job->job_type);
 }
 
 sub dump_graph {

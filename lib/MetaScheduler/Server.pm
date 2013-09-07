@@ -122,6 +122,7 @@ sub process_requests {
 	    }
 
 	    $inbuffer{$client} .= $data;
+	    print "Reading data:\n$data\n";
 
 	    # test whether the data in the buffer or the data we
             # just read means there is a complete request waiting
