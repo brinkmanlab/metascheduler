@@ -79,7 +79,8 @@ sub send_req {
     my $length = length $msg;
 
     # Make sure the socket is still open and working
-    if($handle->connected ~~ undef) {
+    if(! defined $handle->connected) {
+#    if($handle->connected ~~ undef) {
 	$logger->error("Error, socket seems to be closed");
 	return;
     }
