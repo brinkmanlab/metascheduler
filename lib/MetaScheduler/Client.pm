@@ -37,7 +37,7 @@ use Tie::RefHash;
 use Fcntl qw/O_NONBLOCK/;
 #use Fcntl qw/F_GETFL, F_SETFL, O_NONBLOCK/;
 use MetaScheduler::Config;
-use Log::Log4perl(get_logger :nowarn);
+use Log::Log4perl qw(get_logger :nowarn);
 
 my $logger;
 my $cfg;
