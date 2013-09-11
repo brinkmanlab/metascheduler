@@ -259,7 +259,7 @@ sub run_component {
     
     # Send the start request to the scheduler object
     # Name it with the task_id+component_type
-    my $sched_id = $self->{scheduler}->submit_job($self->{job}->task_id . "_$ctype", $c->qsub_file, $cfg->{jobs_dir});
+    my $sched_id = $self->{scheduler}->submit_job($self->{job}->task_id . "_$ctype", $c->qsub_file, "$cfg->{jobs_dir}/" . $self->{job}->task_id);
 
     # Did the task submit successfully?
     if($sched_id > 0) {

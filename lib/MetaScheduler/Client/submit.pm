@@ -39,13 +39,18 @@ my $protocol_version = '1.0';
 sub initialize {
     my ($self, $host, $port, @ARGV) = @_;
 
-    my $input; my $user; my $passwd; my $json;
+    my $input; my $user; my $passwd; my $json; my $help;
 
     my $res = GetOptions ("input=s"  => \$input,
 			  "user=s"   => \$user,
 			  "passwd=s" => \$passwd,
+			  "help"     => \$help,
 	)
 	or die "Error in command line arguments";
+
+    if($help) {
+	usage();
+    }
 
     die "Error, no user or password"
 	unless($user && $passwd);
@@ -94,6 +99,11 @@ sub buildReq {
     $str .= " }\nEOF\n";
 
     return $str;
+}
+
+sub usage {
+    print "Usage: $0 submit [-s json_file] [--raw|-r]\n";
+    exit; 
 }
 
 1;

@@ -31,9 +31,9 @@ sub submit_job {
     my $cmd = MetaScheduler::Config->config->{torque_qsub};
 #              . " -o $job_dir -e $job_dir $qsub_file";
 
-    $logger->debug("Submitting job $cmd -o $job_dir -e $job_dir $qsub_file");
+    $logger->debug("Submitting job $cmd -d $job_dir $qsub_file");
 
-    open(CMD, '-|', $cmd, "-o $job_dir", "-e $job_dir", "$qsub_file");
+    open(CMD, '-|', $cmd, "-d $job_dir", "$qsub_file");
     my $output = do { local $/; <CMD> };
     close CMD;
 
@@ -41,7 +41,7 @@ sub submit_job {
 
     unless($return_code == 0) {
 	# We have an error of some kind with the call
-	$logger->error("Error, unable to run qsub: $cmd -o $job_dir -e $job_dir $qsub_file, return code: $return_code, output $output");
+	$logger->error("Error, unable to run qsub: $cmd -d $job_dir $qsub_file, return code: $return_code, output $output");
 	return -1;
     }
 
