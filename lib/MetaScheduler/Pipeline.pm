@@ -126,9 +126,14 @@ sub build_tree {
 	die "Error, pipeline for $self->{pipeline}->{job_type} isn't a directed acyclic graph";
     }
 
-    if($self->{g}->isolated_vertices()) {
-	$logger->error("Error, pipeline for $self->{pipeline}->{job_type} has unreachable components");
-	die "Error, pipeline for $self->{pipeline}->{job_type} has unreachable component";
+    if(my ($iv) = $self->{g}->isolated_vertices()) {
+	# We'll allow issolated vertices if there's only one
+	# component in the pipeline, of course it will be
+	# isolated!
+	unless($iv eq $self->{pipeline}->{'first_component'}) {
+	    $logger->error("Error, pipeline for $self->{pipeline}->{job_type} has unreachable components");
+	    die "Error, pipeline for $self->{pipeline}->{job_type} has unreachable component";
+	}
     }
 
     print "Graph:\n$self->{g}\n";
