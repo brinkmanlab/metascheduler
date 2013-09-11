@@ -8,6 +8,16 @@
 
 $|++;
 
+my $actions = {
+    submit => 'submit',
+    show   => 'show',
+    alter  => 'alter',
+    delete => 'delete',
+    status => 'status',
+    graph  => 'graph',
+    admin  => 'admin',
+};
+
 use warnings;
 use strict;
 use Cwd qw(abs_path getcwd);
@@ -37,6 +47,12 @@ my $command = lc shift @ARGV;
 # don't have to
 push @ARGV, '-u', 'user', '-p', 'pass';
 
+unless($command && $actions->{$command}) {
+    print "Error, unknown command\n";
+    usage();
+    exit 1;
+}
+
 # Try and load the module
 eval {
     no strict 'refs';
@@ -48,3 +64,13 @@ if($@) {
     die "Error, unknown command $command: $@";
 }
 
+exit;
+
+sub usage {
+    print "Usage: $0 [command] [args]\n";
+    print "   Use $0 [command] -h for arguments to each command\n\n";
+    print "  Allowed commands:\n";
+    foreach my $cmd (keys %{$actions}) {
+	print "    $cmd\n";
+    }
+}
