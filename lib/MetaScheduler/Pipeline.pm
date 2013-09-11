@@ -193,7 +193,8 @@ sub validate_state {
 
 	# Now we have to deal with jobs that have exited the scheduler
 	# and what their current state actually is, did it succeed,
-	# fail, or die silently?
+	# fail, or die silently?  If the scheduler says COMPLETE
+	# but confirm_status says RUNNING, it died silently, error!
 	$logger->debug("Setting state for job " . $self->{job}->task_id . " to $test_state");
 	given($test_state) {
 	    when ("COMPLETE")   { $self->{job}->change_state({component_type => $v,
