@@ -87,7 +87,7 @@ sub refresh {
 
     return unless($args->{force} || $self->expired);
 
-    $logger->debug("Refreshing jobs list");
+    $logger->trace("Refreshing jobs list");
 
     $self->parse_qstat;
     $self->refresh_stats;
@@ -149,7 +149,7 @@ sub parse_qstat {
     my $qstat_txt;
     {
 	local $/ = ''; # change INPUT_RECORD_SEPARATOR to blank line 
-	$logger->debug("Slurping in qstat");
+	$logger->trace("Slurping in qstat");
 	open my $fh, "$config->{torque_qstat}|"
 	    or die "Error slurping qstat: $!";
 	while($qstat_txt = <$fh>) {

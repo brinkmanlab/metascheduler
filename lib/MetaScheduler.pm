@@ -138,18 +138,18 @@ sub runScheduler {
 
     # Setup TCP port
 
-    $logger->debug("Running the scheduler, start the loop!");
+    $logger->info("Running the scheduler, start the loop!");
 
     # while we haven't received a finish signal
     while(!$sig_int) {
 
-	$logger->debug("In the loop");
+	$logger->trace("In the loop");
 
 	# We're going to go through the jobs and 
 	# deal with them one by one for this cycle
 	for my $name ($self->fetch_keys) {
 	    my $pipeline = $self->get_job($name);
-	    $logger->debug("Processing a pipeline $name");
+	    $logger->trace("Processing a pipeline $name");
 
 	    $self->processJob($pipeline);
 
@@ -164,7 +164,7 @@ sub runScheduler {
 	# in case we have anything to send, and set the
 	# timeout to 1 second so we're not spinning quite
 	# as tight a loop.
-	$logger->debug("Processing any TCP requests");
+	$logger->trace("Processing any TCP requests");
 	$server->process_requests($self);
     }
 }
@@ -197,7 +197,7 @@ sub processJob {
 	return;
     }
 
-    $logger->debug("Giving job $task_id a slice");
+    $logger->trace("Giving job $task_id a slice");
 
     # Have we had errors in past attempts?
     if($pipeline->errors) {
@@ -289,7 +289,7 @@ sub loadJobs {
 	    $logger->error("Error, can not initialize job $row[0] of type $row[1], skipping. [$@]");
 	} else {
 	    my $name = $self->concatName($job->job_type, $job->job_name);
-	    $logger->debug("Finished initializing job $name, saving.");
+	    $logger->trace("Finished initializing job $name, saving.");
 	    $self->set_job($name => $pipeline);
 	    push @job_ary, $job;
 	    $logger->debug("Task saved: " . $pipeline->fetch_task_id . ' ' . $pipeline);
@@ -488,7 +488,7 @@ sub initializeScheduler {
 
     eval {
 	no strict 'refs';
-	$logger->debug("Initializing scheduler MetaScheduler::$scheduler");
+	$logger->info("Initializing scheduler MetaScheduler::$scheduler");
 	require "MetaScheduler/$scheduler.pm";
 	"MetaScheduler::$scheduler"->initialize();
     };

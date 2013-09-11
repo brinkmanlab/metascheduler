@@ -83,7 +83,7 @@ sub add_email {
     my $sqlstmt = qq{INSERT INTO mail (task_id, email) VALUES (?, ?)};
     my $add_email = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
-    $logger->debug("Locking tables for add_email, task_id $task_id");
+    $logger->trace("Locking tables for add_email, task_id $task_id");
     $dbh->do("LOCK TABLES mail WRITE");
 
     # Go through the emails we were given
@@ -111,7 +111,7 @@ sub add_email {
 	push @{ $self->saved_emails }, $one_email;
     }
 
-    $logger->debug("Unlocking tables for add_email, task_id $task_id");
+    $logger->trace("Unlocking tables for add_email, task_id $task_id");
     $dbh->do("UNLOCK TABLES");
 }
 
@@ -152,7 +152,7 @@ sub send_email {
     my $args = shift;
 
     my $task_id = $self->task_id;
-    $logger->debug("Sending emails for task_id $task_id");
+    $logger->info("Sending emails for task_id $task_id");
 
     # Do email sending stuff later
     my $mailer = Mail::Mailer->new();
@@ -178,7 +178,7 @@ sub send_email {
 
     # We do it this way to we get the exact NOW() that
     # mysql set for the rows
-    $logger->debug("Reloading task $task_id");
+    $logger->trace("Reloading task $task_id");
     $self->load_emails($task_id);
 
 }

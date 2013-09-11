@@ -122,7 +122,7 @@ sub change_state {
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
 
-    $logger->debug("Changing state for component " . $self->component_id . " to $args->{state}");
+    $logger->trace("Changing state for component " . $self->component_id . " to $args->{state}");
 
     if(uc($args->{state}) eq 'COMPLETE') {
 	$dbh->do("UPDATE component SET run_status = \"COMPLETE\", complete_date= NOW() WHERE component_id = ?", {}, $self->component_id);

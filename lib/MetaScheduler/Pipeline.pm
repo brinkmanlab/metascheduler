@@ -109,7 +109,7 @@ sub build_tree {
 
     foreach my $component (@{$self->{pipeline}->{'components'}}) {
 	my $name = $component->{name};
-	$logger->debug("Adding component $name");
+	$logger->trace("Adding component $name");
 	$self->add_edges($name, $component->{on_success}, 'success')
 	    if($component->{on_success});
 
@@ -153,7 +153,7 @@ sub validate_state {
     vertex: foreach my $v ($self->{g}->vertices) {
 	my $c = $self->{job}->find_component($v);
 
-	$logger->debug("Evaluating state for task " . $self->{job}->task_id . " component $v");
+	$logger->trace("Evaluating state for task " . $self->{job}->task_id . " component $v");
 
 	unless($c) {
 	    $logger->error("Error, we can't find component $v in job " . $self->{job}->task_id);
@@ -165,11 +165,11 @@ sub validate_state {
 
 	# We only care if we think it's running
 	next vertex unless($state eq 'RUNNING');
-	$logger->debug("Component $v for task " . $self->{job}->task_id . " is RUNNING, validating");
+	$logger->trace("Component $v for task " . $self->{job}->task_id . " is RUNNING, validating");
 
 	# Check the scheduler to see if the job is there
 	my $sched_state = $self->{scheduler}->fetch_job_state($c->qsub_id);
-	$logger->debug("Scheduler says component $v is in state $sched_state");
+	$logger->debug("Validating if component is really running, scheduler says component $v is in state $sched_state");
 
 	my $test_state;
 	given($sched_state) {
@@ -220,7 +220,7 @@ sub confirm_state {
 
 
     $cmd =~ s/\%\%jobid\%\%/$self->{job}->job_id/e;
-    $logger->debug("Running command $cmd to check state of job " . $self->{job}->task_id);
+    $logger->trace("Running command $cmd to check state of job " . $self->{job}->task_id);
 
     my $rv = system($cmd);
 
@@ -229,14 +229,14 @@ sub confirm_state {
 	return "ERROR";
        
     } elsif($rv & 4) {
-	$logger->debug("Task " . $self->{job}->task_id . " completed with an error");
+	$logger->trace("Task " . $self->{job}->task_id . " completed with an error");
 	return "ERROR";
     } elsif($rv & 8) {
-	$logger->debug("Task " . $self->{job}->task_id . " seems to still be running");
+	$logger->trace("Task " . $self->{job}->task_id . " seems to still be running");
 	return "RUNNING";
     }
 
-    $logger->debug("Task " . $self->{job}->task_id . " seems to have completed successfully");
+    $logger->trace("Task " . $self->{job}->task_id . " seems to have completed successfully");
     return "COMPLETE";
 
 }
@@ -324,7 +324,7 @@ sub run_iteration {
 	die "Error, can't run an iteration on pipeline, nob job attached";
     }
 
-    $logger->debug("Running iteration of job " . $self->{job}->job_type . " with job_id " . $self->{job}->job_id);
+    $logger->trace("Running iteration of job " . $self->{job}->job_type . " with job_id " . $self->{job}->job_id);
 
     # Before we begin an iteration, validate the state of the job
     $self->validate_state();
@@ -343,7 +343,7 @@ sub run_iteration {
     # Now go through again and find the components that are pending
     # and all their parents are complete, following the success/failure
     # path
-    $logger->debug("Walking the job looking for components to run");
+    $logger->trace("Walking the job looking for components to run");
     foreach my $start (@starts) {
 	my $v = $start;
 
@@ -368,7 +368,7 @@ sub walk_and_run {
     my $self = shift;
     my $v = shift;
 
-    $logger->debug("Walking component $v");
+    $logger->trace("Walking component $v");
 
     my $state = $self->{job}->find_component_state($v);
 
@@ -376,7 +376,7 @@ sub walk_and_run {
 	when ("PENDING")    { 
 	    # Unless all the predecessors are complete or error
 	    # we can't run this component
-	    $logger->debug("Component $v is pending, checking parents");
+	    $logger->trace("Component $v is pending, checking parents");
 #	    foreach my $u ($self->{g}->predecessors($v)) {
 #		my $s = $job->find_component_state($u);
 #		return unless(($s eq 'COMPLETE') || ($s eq 'ERROR'));
@@ -384,19 +384,19 @@ sub walk_and_run {
 
 	    return unless($self->is_runable($v));
 
-	    $logger->debug("Looks good for $v, trying to run");
+	    $logger->trace("Looks good for $v, trying to run");
 	    $self->run_component($v);
 	    return;
 	}
 	when ("COMPLETE")   { 
-	    $logger->debug("Component $v complete, walking children");
+	    $logger->trace("Component $v complete, walking children");
 	    foreach my $u ($self->{g}->successors($v)) {
 		$self->walk_and_run($u);
 	    }
 	}
 	when ("HOLD")       { return; }
 	when ("ERROR")      { 
-	    $logger->debug("Component $v error, walking children");
+	    $logger->trace("Component $v error, walking children");
 	    foreach my $u ($self->{g}->successors($v)) {
 		$self->walk_and_run($u);
 	    }
@@ -519,13 +519,13 @@ sub find_runable {
     return unless($self->{job} && $self->{g});
 
     my $runable;
-    $logger->debug("Finding runable components for pipeline");
+    $logger->trace("Finding runable components for pipeline");
 
     unless($v) {
 	my @starts = $self->find_entry_points;
 
 	foreach my $start (@starts) {
-	    $logger->debug("Checking start point $start");
+	    $logger->trace("Checking start point $start");
 	    if($self->is_runable($start)) {
 		push @{$runable}, $start;
 		$logger->debug("Start point $start is runable");
@@ -543,14 +543,14 @@ sub find_runable {
 	return $runable;
     }
 
-    $logger->debug("Checking state for $v");
+    $logger->trace("Checking state for $v");
     my $state = $self->{job}->find_component_state($v);
 
     given($self->{job}->find_component_state($v)) {
 	when ("PENDING")    { 
 	    # Unless all the predecessors are complete or error
 	    # we can't run this component
-	    $logger->debug("Component $v is pending, checking parents");
+	    $logger->trace("Component $v is pending, checking parents");
 #	    foreach my $u ($g->predecessors($v)) {
 #		my $s = $job->find_component_state($u);
 #		return unless(($s eq 'COMPLETE') || ($s eq 'ERROR'));
@@ -614,7 +614,7 @@ sub overlay_walk_component {
 
     # Is is a sink vertex, or a vertex with no children
     if($self->{g}->is_sink_vertex($v)) {
-	$logger->debug("Vertex $v is a sink, stopping");
+	$logger->trace("Vertex $v is a sink, stopping");
 	return;
     } else {
 	my $state = $self->{job}->find_component_state($v);
@@ -630,19 +630,19 @@ sub overlay_walk_component {
 	} elsif($state eq "PENDING") {
 	    # Hasn't started yet, we stop here because we
 	    # don't know which direction to go
-	    $logger->debug("Component $v is PENDING, no where to go");
+	    $logger->trace("Component $v is PENDING, no where to go");
 	    return;
 
 	} elsif($state eq "HOLD") {
 	    # Component is on hold, we stop here because we
 	    # don't know which direction to go
-	    $logger->debug("Component $v is HOLD, no where to go");
+	    $logger->trace("Component $v is HOLD, no where to go");
 	    return;
 
 	} elsif($state eq "RUNNING") {
 	    # Component is running, we stop here because we
 	    # don't know which direction to go
-	    $logger->debug("Component $v is RUNNING, no where to go");
+	    $logger->trace("Component $v is RUNNING, no where to go");
 	    return;
 
 	} else {
@@ -705,7 +705,7 @@ sub fetch_component {
     die "Error, no pipeline loaded"
 	unless($self->{pipeline});
 
-    $logger->debug("Returning pipeline component $name");
+    $logger->trace("Returning pipeline component $name");
 
     foreach my $component (@{$self->{pipeline}->{'components'}}) {
 	return $component

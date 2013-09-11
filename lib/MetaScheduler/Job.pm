@@ -318,7 +318,7 @@ sub change_state {
 	my $component = $self->find_component($args->{component_type});
 	
 	if($component) {
-	    $logger->debug("Changing state for component, punting on to component object");
+	    $logger->trace("Changing state for component, punting on to component object");
 	    $component->change_state($args);
 	} else {
 	    $logger->error("Component $args->{component_type} not found");
@@ -326,7 +326,7 @@ sub change_state {
 
     } else {
 	my $task_id;
-	$logger->debug("Changing state for job " . $self->task_id . " to $args->{state}");
+	$logger->trace("Changing state for job " . $self->task_id . " to $args->{state}");
 
 	if(uc($args->{state}) eq 'COMPLETE') {
 	    $dbh->do("UPDATE task SET run_status = \"COMPLETE\", complete_date= NOW() WHERE task_id = ?", {}, $self->task_id);
@@ -378,7 +378,7 @@ sub find_component_state {
     if($c) {
 	return $c->run_status;
     } else {
-	$logger->("Error, can't find component $component_type when checking state");
+	$logger->error("Error, can't find component $component_type when checking state");
 	return undef;
     }
 }
@@ -393,7 +393,7 @@ sub find_component {
 	}
     }
 
-    $logger->debug("Component $component_type not found");
+    $logger->warn("Component $component_type not found");
     return undef;
 }
 

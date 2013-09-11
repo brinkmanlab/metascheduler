@@ -56,7 +56,7 @@ sub submit_job {
 
     # We've successfully submitted a job, I hope.
     my $job_id = $1;
-    $logger->debug("Submitted job $qsub_file, name $name, job_id $job_id");
+    $logger->info("Submitted job $qsub_file, name $name, job_id $job_id");
     
     return $job_id;
 }
