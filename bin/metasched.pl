@@ -24,7 +24,7 @@ use Cwd qw(abs_path getcwd);
 use Getopt::Long;
 
 # Set connection information here
-my $host = 'localhost';
+my $host = 'controlbk';
 my $port = 7709;
 
 BEGIN{
