@@ -297,8 +297,9 @@ sub add_edges {
 sub find_entry_points {
     my $self = shift;
 
-    my @v = $self->{g}->source_vertices();
+    my @v = $self->{g}->predecessorless_vertices();
 
+#    print "entry points\n";
 #    print Dumper @v;
     return @v;
 }
@@ -351,6 +352,7 @@ sub run_iteration {
     # path
     $logger->trace("Walking the job looking for components to run");
     foreach my $start (@starts) {
+	$logger->trace("Checking $start");
 	my $v = $start;
 
 	$self->walk_and_run($v)
