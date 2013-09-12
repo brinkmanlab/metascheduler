@@ -182,7 +182,7 @@ sub parse_record {
 #    print Dumper $job;
 
     # We want to parse out jobs that aren't ours
-    return unless($job->{Job_Name} =~ /^MetaS/);
+    return unless($job->{Job_Name} =~ /^MetaScheduler/);
 
     $self->set_job($jobid => $job);
 }
