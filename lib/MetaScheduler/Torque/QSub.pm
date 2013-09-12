@@ -33,11 +33,12 @@ sub submit_job {
     $name = 'MetaScheduler_' . $name;
 
     my $cmd = MetaScheduler::Config->config->{torque_qsub};
-#              . " -o $job_dir -e $job_dir $qsub_file";
+              . " -d $job_dir $qsub_file";
 
-    $logger->debug("Submitting job $cmd -d $job_dir $qsub_file");
+#    $logger->debug("Submitting job $cmd -d $job_dir $qsub_file");
+    $logger->debug("Submitting job $cmd");
 
-    open(CMD, '-|', $cmd, "-d $job_dir", "$qsub_file");
+    open(CMD, '-|', $cmd);
     my $output = do { local $/; <CMD> };
     close CMD;
 
