@@ -347,6 +347,10 @@ sub run_iteration {
 	$self->overlay_walk_component($v);
     }
 
+    # We wanted to clean up finished components, but if the job
+    # itself is HOLD, don't run anything, we're done
+    return if($self->{job}->run_status eq 'HOLD');
+
     # Now go through again and find the components that are pending
     # and all their parents are complete, following the success/failure
     # path
