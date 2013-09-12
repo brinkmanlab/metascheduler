@@ -118,7 +118,7 @@ sub printResults {
 	return;
 
     # If we received a 404, that means there were no records found
-    elsif($res->{code} eq '404') {
+    } elsif($res->{code} eq '404') {
 	print "No jobs found\n";
 	return;
     }
