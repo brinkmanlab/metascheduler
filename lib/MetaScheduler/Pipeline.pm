@@ -779,7 +779,7 @@ sub send_mail {
 	unless($self->{pipeline}->{mailer_script});
 
     # Get the script specified and substitute in the values
-    my $cmd = $self->{pipeline}->{mailer_script}
+    my $cmd = $self->{pipeline}->{mailer_script};
     $cmd =~ s/\%\%jobid\%\%/$self->{job}->job_id/e;
     $cmd =~ s/\%\%status\%\%/$self->{job}->run_status/e;
 
