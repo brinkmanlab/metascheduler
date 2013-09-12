@@ -500,7 +500,7 @@ sub update_job_status {
 
     my $ended = 1;
     my $error = 0;
-    foreach my $v ($self->{g}->sink_verticies()) {
+    foreach my $v ($self->{g}->sink_vertices()) {
 	my $s = $self->{job}->find_component_state($v);
 	$ended = 0 unless($s eq 'COMPLETE' ||
 			  $s eq 'ERROR');
