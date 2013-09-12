@@ -191,7 +191,7 @@ sub validate_state {
 	    when ("COMPLETE")   { $test_state = $self->confirm_state($v); }
 	    # In this context treat this as running since
 	    # we're simply waiting
-	    when ("PENDING")    { next vextex; }
+	    when ("PENDING")    { next vertex; }
 	    # If it's happily running we'll leave it be
 	    when ("RUNNING")    { next vertex; }
 	}
