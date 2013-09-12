@@ -24,6 +24,10 @@ sub submit_job {
     my $qsub_file = shift;
     my $job_dir = shift;
     
+    # Clean the paths a little since qsub doesn't like //
+    $job_dir =~ s/\/\//\//g;
+    $qsub_dir =~ s/\/\//\//g;
+
     # Prepend MetaScheduler_ so we can find our
     # jobs later
     $name = 'MetaScheduler_' . $name;
