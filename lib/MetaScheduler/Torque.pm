@@ -81,6 +81,7 @@ sub fetch_job_state {
 
     given($job->{job_state}) {
 	when ("E")    { return "COMPLETE" }
+	when ("C")    { return "COMPLETE" }
 	when ("H")    { return "HOLD" }
 	when ("Q")    { return "PENDING" }
 	when ("R")    { return "RUNNING" }
