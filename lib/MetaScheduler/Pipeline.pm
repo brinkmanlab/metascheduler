@@ -176,6 +176,10 @@ sub validate_state {
 	my $sched_state = $self->{scheduler}->fetch_job_state($c->qsub_id);
 	$logger->debug("Validating if component is really running, scheduler says component $v is in state $sched_state");
 
+	# The Torque scheduler module will never return a ERROR
+	# state, but this switch statement might have to be
+	# revisted if we add other schedulers in the future
+	# that could return ERROR
 	my $test_state;
 	given($sched_state) {
 	    # This means it's no longer in the scheduler
@@ -203,9 +207,13 @@ sub validate_state {
 	$logger->debug("Setting state for job " . $self->{job}->task_id . " to $test_state");
 	given($test_state) {
 	    when ("COMPLETE")   { $self->{job}->change_state({component_type => $v,
-						      state => 'COMPLETE' }); }
+						      state => 'COMPLETE' }); 
+				  $self->send_mail();
+	    }
 	    when ("ERROR")      { $self->{job}->change_state({component_type => $v,
-						      state => 'ERROR' }); }
+						      state => 'ERROR' }); 
+				  $self->send_mail();
+	    }
 	    when ("RUNNING")    { $self->{job}->change_state({component_type => $v,
 						      state => 'ERROR' }); }
 	}
@@ -761,6 +769,22 @@ sub set_state {
     }
 
     return 1;
+
+}
+
+sub send_mail {
+    my $self = shift;
+
+    $logger->error("Error, no mailer_script defined, can't send mail for " . $self->{job}->task_id)
+	unless($self->{pipeline}->{mailer_script});
+
+    # Get the script specified and substitute in the values
+    my $cmd = $self->{pipeline}->{mailer_script}
+    $cmd =~ s/\%\%jobid\%\%/$self->{job}->job_id/e;
+    $cmd =~ s/\%\%status\%\%/$self->{job}->run_status/e;
+
+    # Just run it
+    `$cmd`;
 
 }
 
