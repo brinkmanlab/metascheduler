@@ -234,6 +234,7 @@ sub confirm_state {
 
 
     $cmd =~ s/\%\%jobid\%\%/$self->{job}->job_id/e;
+    $cmd =~ s/\%\%component\%\%/$x/e;
     $logger->trace("Running command $cmd to check state of job " . $self->{job}->task_id);
 
     my $rv = system($cmd);
