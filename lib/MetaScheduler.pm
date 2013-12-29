@@ -494,7 +494,7 @@ sub initializeScheduler {
     };
 
     if($@) {
-	$logger->fatal("Error, can not load scheduler $scheduler: $@");
+	$logger->logdie("Error, can not load scheduler $scheduler: $@");
     }
 }
 
