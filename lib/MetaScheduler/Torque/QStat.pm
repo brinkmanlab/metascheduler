@@ -210,7 +210,7 @@ sub expire_old_jobs {
 
     for my $job ($self->job_pairs) {
 	# We only care about jobs that are in the complete state
-	next unless($job->[1]->{job_state} eq 'E');
+	next unless(($job->[1]->{job_state} eq 'E') || ($job->[1]->{job_state} eq 'C'));
 
 	next unless((time - str2time($job->[1]->{mtime})) >  
 		    MetaScheduler::Config->config->{torque_expire_time});
