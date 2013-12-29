@@ -102,7 +102,10 @@ sub submit_job {
 	my $job_dir = shift;
 
 	# First check if the scheduler is full
-	return 0 if($self->scheduler_full);
+	if($self->scheduler_full) {
+	    $logger->debug("Scheduler full, skipping");
+	    return -1;
+	}
 	
 	my $job_id = MetaScheduler::Torque::QSub->submit_job($name, $qsub_file, $job_dir);
 

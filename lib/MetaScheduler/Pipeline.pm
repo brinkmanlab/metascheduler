@@ -285,6 +285,8 @@ sub run_component {
 
 	# And make sure we're actually running!
 #	$self->{job}->change_state({state => 'RUNNING'});
+    } elsif($sched_id < 0) {
+	$logger->info("The scheduler appears to be full, deferring job");
     } else {
 	# We couldn't submit the job to the scheduler, hold the job for review
 	$logger->error("Error, can not submit component $ctype to scheduler for job " . $self->{job}->task_id . ", holding job");
