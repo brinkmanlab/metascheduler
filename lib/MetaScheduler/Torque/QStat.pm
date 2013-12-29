@@ -131,8 +131,9 @@ sub scheduler_full {
     my $c = 0;
 
     for my $stats ($self->stat_pairs) {
-	# We don't want to count completed jobs
+	# We don't want to count exited or completed jobs
 	next if($stats->[0] eq "E");
+	next if($stats->[0] eq "C");
 
 	$c += $stats->[1];
     }
