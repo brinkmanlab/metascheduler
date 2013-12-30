@@ -123,13 +123,14 @@ has mailer => (
     isa     => 'Ref',
 );
 
-my $logger; my $cfg;
+#my $self->{logger}; 
+my $cfg;
 
 sub BUILD {
     my $self = shift;
     my $args = shift;
     
-    $logger = Log::Log4perl->get_logger;
+    $self->{logger} = Log::Log4perl->get_logger;
 
     $cfg =  MetaScheduler::Config->config;
 
@@ -139,7 +140,7 @@ sub BUILD {
 	# If it's still in json decode it, otherwise a pre-decoded
 	# version will be in decoded_job
 	if($args->{job}) {
-	    $logger->debug("Adding a new job from json");
+	    $self->{logger}->debug("Adding a new job from json");
 
 	    eval {
 		$self->{job} = decode_json($args->{job});
@@ -149,7 +150,7 @@ sub BUILD {
 		die "Error evaluating job: $args->{job}, $@";
 	    }
 	} else {
-	    $logger->debug("Adding a new job from decoded json");
+	    $self->{logger}->debug("Adding a new job from decoded json");
 
 	    $self->{job} = $args->{decoded_job};
 	}
@@ -168,7 +169,7 @@ sub BUILD {
     # We're pulling a job from the database based on it's
     # internal task_id
 
-	$logger->debug("Loading task $args->{task_id}");
+	$self->{logger}->debug("Loading task $args->{task_id}");
 	$self->load_job($args->{task_id});
 	$self->load_components($args->{task_id});
 	$self->load_mailer($args->{task_id});
@@ -194,7 +195,7 @@ sub BUILD {
 	    $self->makeWorkdir();
 
 	} else {
-	    $logger->error("Error, can not find task_id for $args->{job_id}, $args->{job_type}");
+	    $self->{logger}->error("Error, can not find task_id for $args->{job_id}, $args->{job_type}");
 	    die "Error, can not find task_id for $args->{job_id}, $args->{job_type}";
 	}
 
@@ -214,7 +215,7 @@ sub find_jobs {
     my $sqlstmt = qq{SELECT task_id, job_id, job_name, run_status FROM task WHERE job_type = ?};
     my $fetch_jobs =  $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
-#    $logger->debug("Fetching jobs for job_type $job_type");
+#    $self->{logger}->debug("Fetching jobs for job_type $job_type");
     $fetch_jobs->execute($job_type) or
 	die "Error fetching jobs for job_type $job_type: $DBI::errstr";
 
@@ -256,7 +257,19 @@ sub create_job {
     my $self = shift;
     my $args = shift;
 
-    $logger->debug("Creating and saving job $args->{job_type} for $args->{job_id}, $args->{job_name}");
+    # Check if there's exta parameters we need to do anything with
+#    if($args->{extra_parameters}) {
+#	my @pairs = ':', $args->{extra_parameters};
+#	$self = { split '=', @pairs };
+
+	# And if we now have a logfile parameter, change where
+	# logger points
+#	if($self->{logfile}) {
+	    
+#	}
+#    }
+
+    $self->{logger}->debug("Creating and saving job $args->{job_type} for $args->{job_id}, $args->{job_name}");
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
 
@@ -281,7 +294,7 @@ sub create_job {
 						      });
 	};
 	if($@) {
-	    $logger->error("We weren't able to make the component $component->{component_type} for task $task_id ($args->{job_type}, $args->{job_name}): $@");
+	    $self->{logger}->error("We weren't able to make the component $component->{component_type} for task $task_id ($args->{job_type}, $args->{job_name}): $@");
 	    $self->change_state({state => 'ERROR',
 				 task_id => $task_id
 				});
@@ -318,15 +331,15 @@ sub change_state {
 	my $component = $self->find_component($args->{component_type});
 	
 	if($component) {
-	    $logger->trace("Changing state for component, punting on to component object");
+	    $self->{logger}->trace("Changing state for component, punting on to component object");
 	    $component->change_state($args);
 	} else {
-	    $logger->error("Component $args->{component_type} not found");
+	    $self->{logger}->error("Component $args->{component_type} not found");
 	}
 
     } else {
 	my $task_id;
-	$logger->trace("Changing state for job " . $self->task_id . " to $args->{state}");
+	$self->{logger}->trace("Changing state for job " . $self->task_id . " to $args->{state}");
 
 	if(uc($args->{state}) eq 'COMPLETE') {
 	    $dbh->do("UPDATE task SET run_status = \"COMPLETE\", complete_date= NOW() WHERE task_id = ?", {}, $self->task_id);
@@ -341,7 +354,7 @@ sub change_state {
 	} elsif(uc($args->{state}) eq 'PENDING') {
 	    $dbh->do("UPDATE task SET run_status = \"PENDING\" WHERE task_id = ?", {}, $self->task_id);
 	} else {
-	    $logger->error("State requested for job " . $self->task_id . " of $args->{state} doesn't exist!");
+	    $self->{logger}->error("State requested for job " . $self->task_id . " of $args->{state} doesn't exist!");
 	    die "State requested for job " . $self->task_id . " of $args->{state} doesn't exist";
 	}
 
@@ -378,7 +391,7 @@ sub find_component_state {
     if($c) {
 	return $c->run_status;
     } else {
-	$logger->error("Error, can't find component $component_type when checking state");
+	$self->{logger}->error("Error, can't find component $component_type when checking state");
 	return undef;
     }
 }
@@ -393,7 +406,7 @@ sub find_component {
 	}
     }
 
-    $logger->warn("Component $component_type not found");
+    $self->{logger}->warn("Component $component_type not found");
     return undef;
 }
 
@@ -441,7 +454,7 @@ sub load_job {
     my $sqlstmt = qq{SELECT run_status, job_id, job_type, job_name, job_scheduler, extra_parameters, priority, UNIX_TIMESTAMP(submitted_date) AS submitted_date, UNIX_TIMESTAMP(start_date) AS start_date, UNIX_TIMESTAMP(complete_date) AS complete_date FROM task WHERE task_id = ?};
     my $fetch_job = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
-    $logger->debug("Fetching job $task_id");
+    $self->{logger}->debug("Fetching job $task_id");
     $fetch_job->execute($task_id);
 
     if(my $row = $fetch_job->fetchrow_hashref) {
@@ -452,7 +465,7 @@ sub load_job {
 
 	$self->task_id($task_id)
     } else {
-	$logger->error("Can't find job $task_id");
+	$self->{logger}->error("Can't find job $task_id");
 	die("Can't find job $task_id");
     }
 
@@ -475,7 +488,7 @@ sub load_mailer {
     my $self = shift;
     my $task_id = shift;
 
-    $logger->debug("Loading mailer object for task $task_id");
+    $self->{logger}->debug("Loading mailer object for task $task_id");
     my $mailer = MetaScheduler::Mailer->new({task_id => $task_id});
 
     $self->mailer($mailer);
@@ -490,10 +503,10 @@ sub add_emails {
     print Dumper @emails;
 
     if($self->mailer) {
-	$logger->debug("Adding to existing mailer object task_id " . $self->task_id . ", emails @emails");
+	$self->{logger}->debug("Adding to existing mailer object task_id " . $self->task_id . ", emails @emails");
 	$self->mailer->add_email($self->task_id, @emails);
     } else {
-	$logger->debug("Creating new mailer object for task_id " .$self->task_id);
+	$self->{logger}->debug("Creating new mailer object for task_id " .$self->task_id);
 	my $mailer = MetaScheduler::Mailer->new({task_id => $self->task_id, emails => \@emails});
 	$self->mailer($mailer);
     }
