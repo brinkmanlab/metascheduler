@@ -202,7 +202,7 @@ sub BUILD {
 	return;
        }
 
-    $logger->logdie("Error, you can't have an empty job object");
+    $self->{logger}->logdie("Error, you can't have an empty job object");
 
 }
 
