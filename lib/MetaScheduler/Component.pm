@@ -122,7 +122,7 @@ sub change_state {
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
 
-    $logger->trace("Changing state for component " . $self->component_id . " to $args->{state}");
+    $logger->trace("Changing state for component " . $self->component_id . " to $args->{state}, [" . $self->component_type . '], [' . $self->task_id . ']');
 
     if(uc($args->{state}) eq 'COMPLETE') {
 	$dbh->do("UPDATE component SET run_status = \"COMPLETE\", complete_date= NOW() WHERE component_id = ?", {}, $self->component_id);
@@ -135,8 +135,8 @@ sub change_state {
     } elsif(uc($args->{state}) eq 'RUNNING') {
 	$dbh->do("UPDATE component SET run_status = \"RUNNING\", start_date= NOW(), qsub_id = ? WHERE component_id = ?", {}, $args->{qsub_id}, $self->component_id);
     } else {
-	$logger->error("State requested for component " . $self->component_id . " of $args->{state} doesn't exist");
-	die "State requested for component " . $self->component_id . " of $args->{state} doesn't exist";
+	$logger->error("State requested for component " . $self->component_id . " of $args->{state} doesn't exist, [" . $self->component_type . '], [' . $self->task_id . ']');
+	die "State requested for component " . $self->component_id . " of $args->{state} doesn't exist, [" . $self->component_type . '], [' . $self->task_id . ']';
     }
 
     # Reload the component
@@ -149,7 +149,7 @@ sub set_sched_id {
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
 
-    $logger->debug("Changing sched_id (qsub_id) for component " . $self->component_id . " to $sched_id");
+    $logger->debug("Changing sched_id (qsub_id) for component " . $self->component_id . " to $sched_id, [" . $self->component_type . '], [' . $self->task_id . ']');
 
     $dbh->do("UPDATE component SET qsub_id = ? WHERE component_id = ?", {}, $sched_id, $self->component_id);
 
@@ -161,7 +161,7 @@ sub create_component {
     my $self = shift;
     my $args = shift;
 
-    $logger->debug("Creating and saving component $args->{component_type} for task_id $args->{task_id}");
+    $logger->debug("Creating and saving component $args->{component_type} for task_id [$args->{task_id}]");
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
 
@@ -169,11 +169,11 @@ sub create_component {
     my $add_component = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
     $add_component->execute($args->{task_id}, $args->{component_type}, $args->{extra_parameters} || '', $args->{qsub_file} || '') or
-	die "Error inserting component ($args->{task_id}, $args->{component_type})";
+	die "Error inserting component ([$args->{task_id}], $args->{component_type})";
     
     my $component_id = $dbh->last_insert_id( undef, undef, undef, undef );
 
-    die "Error, no component_id returned ($args->{task_id}, $args->{component_type})"
+    die "Error, no component_id returned ([$args->{task_id}], [$args->{component_type}])"
 	unless($component_id);
 
     return $component_id;

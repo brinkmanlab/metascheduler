@@ -167,6 +167,7 @@ sub validate_state {
 
 	# Fetch the status we think the job is
 	my $state = $self->{job}->find_component_state($v);
+	$self->{logger}->trace("Component $v for task [" . $self->{job}->task_id . "] thinks it is $state, [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
 
 	# We only care if we think it's running
 	next vertex unless($state eq 'RUNNING');
@@ -204,7 +205,7 @@ sub validate_state {
 	# and what their current state actually is, did it succeed,
 	# fail, or die silently?  If the scheduler says COMPLETE
 	# but confirm_status says RUNNING, it died silently, error!
-	$self->{logger}->debug("Setting state for job [" . $self->{job}->task_id . "] to $test_state, [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
+	$self->{logger}->debug("Setting state for job [" . $self->{job}->task_id . "], component $v to $test_state, [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
 	given($test_state) {
 	    when ("COMPLETE")   { $self->{job}->change_state({component_type => $v,
 						      state => 'COMPLETE' }); 
@@ -237,7 +238,10 @@ sub confirm_state {
     $cmd =~ s/\%\%component\%\%/$c/e;
     $self->{logger}->trace("Running command $cmd to check state of job [" . $self->{job}->task_id . "], [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
 
-    my $rv = system($cmd);
+    my $ret = system($cmd);
+    my $rv = $?;
+
+    $self->{logger}->trace("Received return value $rv [" . $self->{job}->task_id . "], [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
 
     if($rv == -1) {
 	$self->{logger}->error("Failed to execute $cmd for job [" . $self->{job}->task_id . "], [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
