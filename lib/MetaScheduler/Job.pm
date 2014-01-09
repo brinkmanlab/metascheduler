@@ -169,7 +169,7 @@ sub BUILD {
     # We're pulling a job from the database based on it's
     # internal task_id
 
-	$self->{logger}->debug("Loading task $args->{task_id}");
+	$self->{logger}->debug("Loading task [$args->{task_id}]");
 	$self->load_job($args->{task_id});
 	$self->load_components($args->{task_id});
 	$self->load_mailer($args->{task_id});
@@ -195,14 +195,14 @@ sub BUILD {
 	    $self->makeWorkdir();
 
 	} else {
-	    $self->{logger}->error("Error, can not find task_id for $args->{job_id}, $args->{job_type}");
+	    $self->{logger}->error("Error, can not find task_id for [$args->{job_id}], $args->{job_type}");
 	    die "Error, can not find task_id for $args->{job_id}, $args->{job_type}";
 	}
 
 	return;
        }
 
-    die "Error, you can't have an empty job object";
+    $logger->logdie("Error, you can't have an empty job object");
 
 }
 
@@ -269,7 +269,7 @@ sub create_job {
 #	}
 #    }
 
-    $self->{logger}->debug("Creating and saving job $args->{job_type} for $args->{job_id}, $args->{job_name}");
+    $self->{logger}->debug("Creating and saving job $args->{job_type} for [$args->{job_id}], $args->{job_name}");
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
 
@@ -294,7 +294,7 @@ sub create_job {
 						      });
 	};
 	if($@) {
-	    $self->{logger}->error("We weren't able to make the component $component->{component_type} for task $task_id ($args->{job_type}, $args->{job_name}): $@");
+	    $self->{logger}->error("We weren't able to make the component $component->{component_type} for task [$task_id] ($args->{job_type}, $args->{job_name}): $@");
 	    $self->change_state({state => 'ERROR',
 				 task_id => $task_id
 				});
@@ -331,15 +331,15 @@ sub change_state {
 	my $component = $self->find_component($args->{component_type});
 	
 	if($component) {
-	    $self->{logger}->trace("Changing state for component, punting on to component object");
+	    $self->{logger}->trace("[" . $self->job_name . "]". "Changing state for component, punting on to component object");
 	    $component->change_state($args);
 	} else {
-	    $self->{logger}->error("Component $args->{component_type} not found");
+	    $self->{logger}->error("[" . $self->job_name . "]". "Component $args->{component_type} not found");
 	}
 
     } else {
 	my $task_id;
-	$self->{logger}->trace("Changing state for job " . $self->task_id . " to $args->{state}");
+	$self->{logger}->trace("[" . $self->job_name . "]". "Changing state for job [" . $self->task_id . "] to $args->{state}");
 
 	if(uc($args->{state}) eq 'COMPLETE') {
 	    $dbh->do("UPDATE task SET run_status = \"COMPLETE\", complete_date= NOW() WHERE task_id = ?", {}, $self->task_id);
@@ -354,7 +354,7 @@ sub change_state {
 	} elsif(uc($args->{state}) eq 'PENDING') {
 	    $dbh->do("UPDATE task SET run_status = \"PENDING\" WHERE task_id = ?", {}, $self->task_id);
 	} else {
-	    $self->{logger}->error("State requested for job " . $self->task_id . " of $args->{state} doesn't exist!");
+	    $self->{logger}->error("[" . $self->job_name . "]". "State requested for job [" . $self->task_id . "] of $args->{state} doesn't exist!");
 	    die "State requested for job " . $self->task_id . " of $args->{state} doesn't exist";
 	}
 
@@ -391,7 +391,7 @@ sub find_component_state {
     if($c) {
 	return $c->run_status;
     } else {
-	$self->{logger}->error("Error, can't find component $component_type when checking state");
+	$self->{logger}->error("[" . $self->job_name . "]". "Error, can't find component $component_type when checking state, [" . $self->job_id . ']');
 	return undef;
     }
 }
@@ -406,7 +406,7 @@ sub find_component {
 	}
     }
 
-    $self->{logger}->warn("Component $component_type not found");
+    $self->{logger}->warn("[" . $self->job_name . "]". "Component $component_type not found, [" . $self->job_id . ']');
     return undef;
 }
 
@@ -454,7 +454,7 @@ sub load_job {
     my $sqlstmt = qq{SELECT run_status, job_id, job_type, job_name, job_scheduler, extra_parameters, priority, UNIX_TIMESTAMP(submitted_date) AS submitted_date, UNIX_TIMESTAMP(start_date) AS start_date, UNIX_TIMESTAMP(complete_date) AS complete_date FROM task WHERE task_id = ?};
     my $fetch_job = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
 
-    $self->{logger}->debug("Fetching job $task_id");
+    $self->{logger}->debug("Fetching job [$task_id]");
     $fetch_job->execute($task_id);
 
     if(my $row = $fetch_job->fetchrow_hashref) {
@@ -465,7 +465,7 @@ sub load_job {
 
 	$self->task_id($task_id)
     } else {
-	$self->{logger}->error("Can't find job $task_id");
+	$self->{logger}->error("Can't find job [$task_id]");
 	die("Can't find job $task_id");
     }
 
@@ -488,7 +488,7 @@ sub load_mailer {
     my $self = shift;
     my $task_id = shift;
 
-    $self->{logger}->debug("Loading mailer object for task $task_id");
+    $self->{logger}->debug("Loading mailer object for task [$task_id]");
     my $mailer = MetaScheduler::Mailer->new({task_id => $task_id});
 
     $self->mailer($mailer);
@@ -503,10 +503,10 @@ sub add_emails {
     print Dumper @emails;
 
     if($self->mailer) {
-	$self->{logger}->debug("Adding to existing mailer object task_id " . $self->task_id . ", emails @emails");
+	$self->{logger}->debug("Adding to existing mailer object task_id [" . $self->task_id . "], emails @emails");
 	$self->mailer->add_email($self->task_id, @emails);
     } else {
-	$self->{logger}->debug("Creating new mailer object for task_id " .$self->task_id);
+	$self->{logger}->debug("Creating new mailer object for task_id [" .$self->task_id . "]");
 	my $mailer = MetaScheduler::Mailer->new({task_id => $self->task_id, emails => \@emails});
 	$self->mailer($mailer);
     }
