@@ -425,6 +425,7 @@ sub walk_and_run {
 	when ("ERROR")      { 
 	    $self->{logger}->trace("Component $v error, walking children, [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
 	    foreach my $u ($self->{g}->successors($v)) {
+		$self->{logger}->trace("Child of $v is $u [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
 		$self->walk_and_run($u);
 	    }
 	}
@@ -489,6 +490,11 @@ sub update_job_status {
     # for a reason, don't alter it.
     return
 	if($self->{job}->run_status eq 'HOLD');
+
+    # If the job is in ERROR, something bad must have
+    # happened, don't second guess ourself.
+    return
+	if($self->{job}->run_status eq 'ERROR');
 
     # If the job is in DELETED, don't try and run any more components,
     # though we're welcome to finish running existing components
