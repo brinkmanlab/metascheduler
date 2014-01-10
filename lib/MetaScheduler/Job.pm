@@ -331,15 +331,15 @@ sub change_state {
 	my $component = $self->find_component($args->{component_type});
 	
 	if($component) {
-	    $self->{logger}->trace("[" . $self->job_name . "]". "Changing state for component $component to " . $args->{state} . ", punting on to component object");
+	    $self->{logger}->trace("Changing state for component $component to " . $args->{state} . ", punting on to component object, [" . $self->task_id . "], [" . $self->job_name . "]");
 	    $component->change_state($args);
 	} else {
-	    $self->{logger}->error("[" . $self->job_name . "]". "Component $args->{component_type} not found");
+	    $self->{logger}->error("Component $args->{component_type} not found, [" . $self->task_id . "], [" . $self->job_name . "]");
 	}
 
     } else {
 	my $task_id;
-	$self->{logger}->trace("[" . $self->job_name . "]". "Changing state for job [" . $self->task_id . "] to $args->{state}");
+	$self->{logger}->trace("Changing state for job [" . $self->task_id . "] to $args->{state}, [" . $self->task_id . "], [" . $self->job_name . "]");
 
 	if(uc($args->{state}) eq 'COMPLETE') {
 	    $dbh->do("UPDATE task SET run_status = \"COMPLETE\", complete_date= NOW() WHERE task_id = ?", {}, $self->task_id);
