@@ -239,9 +239,9 @@ sub confirm_state {
     $self->{logger}->trace("Running command $cmd to check state of job [" . $self->{job}->task_id . "], [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
 
     my $ret = system($cmd);
-    my $rv = $?;
+    my $rv = $? >> 8;
 
-    $self->{logger}->trace("Received return value $rv [" . $self->{job}->task_id . "], [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
+    $self->{logger}->trace("Received return value $rv, ret: $ret [" . $self->{job}->task_id . "], [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
 
     if($rv == -1) {
 	$self->{logger}->error("Failed to execute $cmd for job [" . $self->{job}->task_id . "], [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
