@@ -206,7 +206,14 @@ sub validate_state {
 	# fail, or die silently?  If the scheduler says COMPLETE
 	# but confirm_status says RUNNING, it died silently, error!
 	$self->{logger}->debug("Setting state for job [" . $self->{job}->task_id . "], component $v to $test_state, [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
+
 	given($test_state) {
+	    when ("TIMEOUT")    { $self->{logger}->info("Temporary timeout when checking component $v, [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']'); 
+	    }
+	    when ("PENDING")    { $self->{logger}->warn("We're still in pending for some reason, did it fail to start component $v, [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
+				  $self->{job}->change_state({component_type => $v,
+						      state => 'PENDING' });
+	    }
 	    when ("COMPLETE")   { $self->{job}->change_state({component_type => $v,
 						      state => 'COMPLETE' }); 
 				  $self->send_mail();
@@ -247,12 +254,18 @@ sub confirm_state {
 	$self->{logger}->error("Failed to execute $cmd for job [" . $self->{job}->task_id . "], [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
 	return "ERROR";
        
+    } elsif($rv & 2) {
+	$self->{logger}->trace("Task [" . $self->{job}->task_id . "] appears to be pending, [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
+	return "PENDING";
     } elsif($rv & 4) {
 	$self->{logger}->trace("Task [" . $self->{job}->task_id . "] completed with an error, [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
 	return "ERROR";
     } elsif($rv & 8) {
 	$self->{logger}->trace("Task [" . $self->{job}->task_id . "] seems to still be running, [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
 	return "RUNNING";
+    } elsif($rv & 16) {
+	$self->{logger}->trace("Task [" . $self->{job}->task_id . "] had a temporary TIMEOUT, [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
+	return "TIMEOUT";
     }
 
     $self->{logger}->trace("Task [" . $self->{job}->task_id . "] seems to have completed successfully, [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');

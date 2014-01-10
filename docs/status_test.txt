@@ -2,8 +2,10 @@ The status_test may return the following statuses, the script itself will only e
 
 Error codes:
 0 - success, completed
+2 - pending
 4 - failed, completed
-8 - started/pending (optional)
+8 - started
+16 - temporary timeout, check again later
 
 Typically the status_test script will only be called when the system's scheduler (eg Torque) has lost track of the job (it finished/died futher ago than the acount of time completed jobs are kept in the queue) or when a job finishes and it's not obvious to the scheduler if it succeeded or failed.
 
