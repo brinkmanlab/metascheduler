@@ -331,7 +331,7 @@ sub change_state {
 	my $component = $self->find_component($args->{component_type});
 	
 	if($component) {
-	    $self->{logger}->trace("Changing state for component $component to " . $args->{state} . ", punting on to component object, [" . $self->task_id . "], [" . $self->job_name . "]");
+	    $self->{logger}->trace("Changing state for component $args->{component_type} to " . $args->{state} . ", punting on to component object, [" . $self->task_id . "], [" . $self->job_name . "]");
 	    $component->change_state($args);
 	} else {
 	    $self->{logger}->error("Component $args->{component_type} not found, [" . $self->task_id . "], [" . $self->job_name . "]");
