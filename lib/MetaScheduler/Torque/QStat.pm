@@ -177,8 +177,14 @@ sub parse_record {
 
     my ($jobid) = (shift @lines) =~ /Job Id: (.+)$/;
 
-    chomp (%$job = map { split /\s*=\s*/,$_,2 } grep (!/^$/,@lines));
-
+    eval {
+	chomp (%$job = map { split /\s*=\s*/,$_,2 } grep (!/^$/,@lines));
+    };
+    if($@) {
+	$logger->error("Danger, something really bad happened!");
+	$logger->error(@lines);
+	return;
+    }
 #    print "Job: $jobid\n";
 #    print Dumper $job;
 
