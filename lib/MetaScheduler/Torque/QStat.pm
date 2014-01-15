@@ -191,6 +191,10 @@ sub parse_record {
     # We want to parse out jobs that aren't ours
     return unless($job->{Job_Name} =~ /^MetaScheduler/);
 
+    # Rememberwhen we've last seen this job in the scheduler
+    # in case any jobs quietly vanish without us noticing
+    $job->{last_seen} = time();
+
     $self->set_job($jobid => $job);
 }
 
@@ -199,6 +203,7 @@ sub refresh_stats {
 
     $self->clear_stats;
     $self->expire_old_jobs;
+    $self->remove_missing;
 
     for my $job ($self->job_pairs) {
 	# Increment the stat that this job is in
@@ -207,6 +212,23 @@ sub refresh_stats {
 
     $self->dump_stats;
 
+}
+
+# Cycle through the jobs we know about and see if any
+# have quietly gone away without us noticing
+
+sub remove_missing {
+    my $self = shift;
+
+   for my $job ($self->job_pairs) {
+       # Check the last_seen attribute, if we haven't
+       # seen the job in a while, delete it
+       my $timeout = 60;
+       if(time > ($job->[1]->{last_seen} + $timeout)) {
+	   $logger->info("We haven't seen job $job->[0] in the scheduler for a while, deleting, last seen $job->[1]->{last_seen}, now " . time() . " last state " .  $job->[1]->{job_state});
+	   $self->delete_job($job->[0]);
+       }
+   } 
 }
 
 # Expire older completed jobs
