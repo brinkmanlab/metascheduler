@@ -771,6 +771,26 @@ sub fetch_status {
     return undef;
 }
 
+sub fetch_job_id {
+    my $self = shift;
+
+     if($self->{job}) {
+	return $self->{job}->job_id;
+    }
+
+    return undef;
+}
+
+sub fetch_job_name {
+    my $self = shift;
+
+     if($self->{job}) {
+	return $self->{job}->job_name;
+    }
+
+    return undef;
+}
+
 sub set_state {
     my $self = shift;
     my $state = shift;

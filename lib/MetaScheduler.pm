@@ -189,7 +189,7 @@ sub processJob {
 	# to be pulled from disk
 	my $timeout = $cfg->{cache_timeout} || 86400;
 	if(time > ($pipeline->last_run + $timeout)) {
-	    $logger->debug("Job has completed and expired, removing: $task_id");
+	    $logger->debug("Job has completed and expired, removing: $task_id [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . ']');
 	    $self->delete_job($pipeline);
 	}
 
@@ -197,7 +197,7 @@ sub processJob {
 	return;
     }
 
-    $logger->trace("Giving job $task_id a slice");
+    $logger->trace("Giving job $task_id a slice [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . ']');
 
     # Have we had errors in past attempts?
     if($pipeline->errors) {
@@ -227,10 +227,10 @@ sub processJob {
     if($@) {
 	# Uh-oh, we had an alarm, the iteration timed out
 	if($@ eq "timeout\n") {
-	    $logger->error("Job timed out while running an interation, fail count " . $pipeline->errors . ", task_id $task_id");
+	    $logger->error("Job timed out while running an interation, fail count " . $pipeline->errors . ", task_id $task_id [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . ']');
 	} else {
 	    # Some other kind of error?
-	    $logger->error("Error running iteration of task_id $task_id: " . $@);
+	    $logger->error("Error running iteration of task_id $task_id: [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . '] ' . $@);
 	}
 	# Count the error for our max error count and backoff
 	$pipeline->inc_errors;
