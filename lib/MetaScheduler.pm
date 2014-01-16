@@ -323,6 +323,7 @@ sub reloadJob {
     my $self = shift;
     my $task_id = shift;
 
+    my $pipeline;
     my $dbh = MetaScheduler::DBISingleton->dbh;
     my $pipeline_base = $cfg->{pipelines};
 
