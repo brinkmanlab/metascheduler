@@ -65,7 +65,7 @@ has 'jobs' => (
     },
 );
 
-has 'schedulers' => (
+has schedulers => (
     traits  => ['Array'],
     is      => 'rw',
     isa     => 'ArrayRef[Ref]',
@@ -106,8 +106,6 @@ sub BUILD {
     if(reftype $cfg->{schedulers} eq 'ARRAY') {
 	foreach (@{$cfg->{schedulers}}) {
 	    $self->initializeScheduler($_);
-	    # Remember the loaded schedulers
-	    push @{ $self->schedulers }, $_;
 #	    require "MetaScheduler/$_.pm";
 #	    "MetaScheduler::$_"->initialize();
 	}
@@ -116,8 +114,6 @@ sub BUILD {
 	{
 #	    no strict 'refs';
 	    $self->initializeScheduler($scheduler);
-	    # Remember the loaded schedulers
-	    push @{ $self->schedulers }, $_;
 #	    require "MetaScheduler/$scheduler.pm";
 #	    "MetaScheduler::$scheduler"->initialize();
 	}
@@ -594,6 +590,9 @@ sub initializeScheduler {
 	$logger->info("Initializing scheduler MetaScheduler::$scheduler");
 	require "MetaScheduler/$scheduler.pm";
 	"MetaScheduler::$scheduler"->initialize();
+
+	# Remember the loaded schedulers
+	push @{ $self->schedulers }, $scheduler;
     };
 
     if($@) {
