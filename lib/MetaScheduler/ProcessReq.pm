@@ -47,7 +47,7 @@ my $actions = {
     refresh => 'refresh',
 };
 
-my @logging_levels = qw/DEBUG INFO WARN ERROR FATAL/;
+my @logging_levels = qw/TRACE DEBUG INFO WARN ERROR FATAL/;
 
 my $logger;
 

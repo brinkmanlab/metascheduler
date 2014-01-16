@@ -35,7 +35,7 @@ use Getopt::Long;
 
 my $protocol_version = '1.0';
 
-my @logging_levels = qw/DEBUG INFO WARN ERROR FATAL/;
+my @logging_levels = qw/TRACE DEBUG INFO WARN ERROR FATAL/;
 
 sub initialize {
     my ($self, $host, $port, @ARGV) = @_;
