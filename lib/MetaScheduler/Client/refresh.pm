@@ -81,7 +81,7 @@ sub buildReq {
     my $str = "{\n \"version\": \"$protocol_version\",\n";
     $str .= " \"userid\": \"$user\",\n";
     $str .= " \"password\": \"$passwd\",\n";
-    $str .= " \"action\": \"refresh\",\n";
+    $str .= " \"action\": \"refresh\"\n";
     $str .= "}\nEOF\n";
 
     return $str;

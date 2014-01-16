@@ -94,7 +94,7 @@ sub buildReq {
     $str .= " \"userid\": \"$user\",\n";
     $str .= " \"password\": \"$passwd\",\n";
     $str .= " \"action\": \"logging\",\n";
-    $str .= " \"level\": \"$level\",\n";
+    $str .= " \"level\": \"$level\"\n";
     $str .= "}\nEOF\n";
 
     return $str;
