@@ -516,7 +516,7 @@ sub reloadSchedulers {
 	eval {
 	    $logger->trace("Refreshing scheduler $s");
 	    no strict 'refs';
-	    my $scheduler = "MetaScheduler::$sched"->instance();
+	    my $scheduler = "MetaScheduler::$s"->instance();
 	    $scheduler->refresh(1);
 	};
 	if($@) {
