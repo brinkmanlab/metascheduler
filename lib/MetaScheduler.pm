@@ -65,6 +65,13 @@ has 'jobs' => (
     },
 );
 
+has 'schedulers' => (
+    traits  => ['Array'],
+    is      => 'rw',
+    isa     => 'ArrayRef[Ref]',
+    default => sub { [] },
+);
+
 my $cfg; my $logger; my $server;
 my $sig_int = 0;
 
@@ -99,6 +106,8 @@ sub BUILD {
     if(reftype $cfg->{schedulers} eq 'ARRAY') {
 	foreach (@{$cfg->{schedulers}}) {
 	    $self->initializeScheduler($_);
+	    # Remember the loaded schedulers
+	    push @{ $self->schedulers }, $_;
 #	    require "MetaScheduler/$_.pm";
 #	    "MetaScheduler::$_"->initialize();
 	}
@@ -107,6 +116,8 @@ sub BUILD {
 	{
 #	    no strict 'refs';
 	    $self->initializeScheduler($scheduler);
+	    # Remember the loaded schedulers
+	    push @{ $self->schedulers }, $_;
 #	    require "MetaScheduler/$scheduler.pm";
 #	    "MetaScheduler::$scheduler"->initialize();
 	}
@@ -464,13 +475,53 @@ sub alterJob {
 sub resetJob {
     my $self = shift;
     my $task_id = shift;
+ 
+   $logger->trace("Attempting to reset job $task_id");
 
     my $pipeline = $self->find_by_id($task_id);
 
-    # task_id doesn't exist
-    return 0 unless($pipeline);
+    unless($pipeline) {
+	$logger->warn("Task $task_id not found in memory, trying to fetch from DB");
+	$pipeline = $self->reloadJob($task_id);
+
+	unless($pipeline) {
+	    $logger->error("Failed to reload task $task_id from DB, bailing");
+	    return 0;
+	}
+    }
 
     $pipeline->reset_errors;
+
+    return 1;
+}
+
+sub alterLogLevel {
+    my $self = shift;
+    my $level = shift;
+
+    $logger->info("Adjusting logging level to $level");
+
+    $logger->level($level);
+
+    return 1;
+}
+
+sub reloadSchedulers {
+    my $self = shift;
+
+    $logger->info("Reloading schedulers");
+
+    for my $s (@{$self->schedulers}) {
+	eval {
+	    $logger->trace("Refreshing scheduler $s");
+	    no strict 'refs';
+	    my $scheduler = "MetaScheduler::$sched"->instance();
+	    $scheduler->refresh(1);
+	};
+	if($@) {
+	    $logger->error("Error refreshing scheduler $s");
+	}
+    }
 
     return 1;
 }

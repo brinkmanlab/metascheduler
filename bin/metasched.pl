@@ -16,6 +16,8 @@ my $actions = {
     status => 'status',
     graph  => 'graph',
     admin  => 'admin',
+    logging => 'logging',
+    refresh => 'refresh',
 };
 
 use warnings;

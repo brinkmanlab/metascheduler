@@ -43,7 +43,11 @@ my $actions = {
     status => 'status',
     graph  => 'graph',
     admin  => 'admin',
+    logging => 'logging',
+    refresh => 'refresh',
 };
+
+my @logging_levels = qw/DEBUG INFO WARN ERROR FATAL/;
 
 my $logger;
 
@@ -224,6 +228,38 @@ sub admin {
 
     return (500, $self->makeResStr(500, "Unknown in admin command"));
 
+}
+
+sub logging {
+    my $self = shift;
+    my $callback = shift;
+    my $args = shift;
+
+    my $res = 0;
+
+    if($args->{level} ~~ @logging_levels) {
+	$res = $callback->alterLogLevel($args->{level});
+    } else {
+	return (500, $self->makeResStr(500, "Unknown log level"));
+    }
+
+    return (200, $self->makeResStr(200, "Success")) if ($res);
+
+    return (500, $self->makeResStr(500, "Unknown error"));
+}
+
+sub refresh {
+    my $self = shift;
+    my $callback = shift;
+    my $args = shift;
+
+    my $res = 0;
+
+    $res = $callback->refreshSchedulers();
+
+    return (200, $self->makeResStr(200, "Success")) if ($res);
+
+    return (500, $self->makeResStr(500, "Unknown error"));
 }
 
 sub makeResStr {
