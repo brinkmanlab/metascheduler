@@ -65,8 +65,6 @@ has 'jobs' => (
     },
 );
 
-my @job_ary;
-
 my $cfg; my $logger; my $server;
 my $sig_int = 0;
 
@@ -284,6 +282,7 @@ sub loadJobs {
 	    $pipeline->attach_job($job);
 	    $pipeline->validate_state();
 	    $pipeline->graph();
+	    $pipeline->last_run(time);
 	};
 
 	if($@) {
@@ -292,8 +291,7 @@ sub loadJobs {
 	    my $name = $self->concatName($job->job_type, $job->job_name);
 	    $logger->trace("Finished initializing job $name, saving.");
 	    $self->set_job($name => $pipeline);
-	    push @job_ary, $job;
-	    $logger->debug("Task saved: " . $pipeline->fetch_task_id . ' ' . $pipeline);
+	    $logger->debug("Task saved: " . $pipeline->fetch_task_id . ' ' . $pipeline . " [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . ']');
 	}
     }
 
@@ -307,6 +305,49 @@ sub loadJobs {
 #	print $p->task_id . " ". $p ."\n";
 #    }
 #    print "\n";
+}
+
+# If we need to pull a complete & expired job back in to the scheduler
+sub reloadJob {
+    my $self = shift;
+    my $task_id = shift;
+
+    my $dbh = MetaScheduler::DBISingleton->dbh;
+    my $pipeline_base = $cfg->{pipelines};
+
+    my $sqlstmt = qq{SELECT task_id, job_type FROM task WHERE task_id = ?};
+    my $fetch_jobs = $dbh->prepare($sqlstmt) or die "Error preparing statement: $sqlstmt: $DBI::errstr";
+
+    $fetch_jobs->execute($task_id) or
+	$logger->fatal("Error fetching jobs in initialization: $DBI::errstr");
+
+    if(my @row = $fetch_jobs->fetchrow_array) {
+	$logger->info("Reloading job $row[0] of type $row[1]");
+	my $job; my $pipeline;
+	eval {
+	    $pipeline = MetaScheduler::Pipeline->new({pipeline => $pipeline_base . '/' . lc($row[1]) . '.config'});
+	    $job = MetaScheduler::Job->new({task_id => $row[0]});
+	    $pipeline->attach_job($job);
+	    $pipeline->validate_state();
+	    $pipeline->graph();
+	    $pipeline->last_run(time);
+	};
+
+	if($@) {
+	    $logger->error("Error, can not initialize job $row[0] of type $row[1], $@");
+	    return 0;
+	} else {
+	    my $name = $self->concatName($job->job_type, $job->job_name);
+	    $logger->trace("Finished initializing job $name, saving.");
+	    $self->set_job($name => $pipeline);
+	    $logger->debug("Task saved: " . $pipeline->fetch_task_id . ' ' . $pipeline . " [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . ']');
+	}
+    } else {
+	$logger->warn("Job $task_id wasn't found in the database");
+	return 0;
+    }
+
+    return $pipeline;
 }
 
 sub addJob {
@@ -387,10 +428,19 @@ sub alterJob {
     my $action = shift;
     my $component = shift;
 
+    $logger->trace("Attempting to alter job $task_id to $action [component $component]");
+
     my $pipeline = $self->find_by_id($task_id);
 
-    # task_id doesn't exist
-    return 0 unless($pipeline);
+    unless($pipeline) {
+	$logger->warn("Task $task_id not found in memory, trying to fetch from DB");
+	$pipeline = $self->reloadJob($task_id);
+
+	unless($pipeline) {
+	    $logger->error("Failed to reload task $task_id from DB, bailing");
+	    return 0;
+	}
+    }
 
     my $res = 0;
 
