@@ -520,7 +520,7 @@ sub refreshSchedulers {
 	    $scheduler->refresh(1);
 	};
 	if($@) {
-	    $logger->error("Error refreshing scheduler $s");
+	    $logger->error("Error refreshing scheduler $s: $@");
 	}
     }
 
