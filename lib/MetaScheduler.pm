@@ -331,7 +331,7 @@ sub reloadJob {
 
     if(my @row = $fetch_jobs->fetchrow_array) {
 	$logger->info("Reloading job $row[0] of type $row[1]");
-	my $job; my $pipeline;
+	my $job;
 	eval {
 	    $pipeline = MetaScheduler::Pipeline->new({pipeline => $pipeline_base . '/' . lc($row[1]) . '.config'});
 	    $job = MetaScheduler::Job->new({task_id => $row[0]});
@@ -480,7 +480,7 @@ sub resetJob {
     unless($pipeline) {
 	$logger->warn("Task $task_id not found in memory, trying to fetch from DB");
 	$pipeline = $self->reloadJob($task_id);
-	print $pipeline;
+
 	unless($pipeline) {
 	    $logger->error("Failed to reload task $task_id from DB, bailing");
 	    return 0;
