@@ -480,7 +480,7 @@ sub resetJob {
     unless($pipeline) {
 	$logger->warn("Task $task_id not found in memory, trying to fetch from DB");
 	$pipeline = $self->reloadJob($task_id);
-
+	print $pipeline;
 	unless($pipeline) {
 	    $logger->error("Failed to reload task $task_id from DB, bailing");
 	    return 0;
