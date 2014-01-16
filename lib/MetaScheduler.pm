@@ -151,7 +151,7 @@ sub runScheduler {
 	    my $pipeline = $self->get_job($name);
 	    $logger->trace("Processing a pipeline $name");
 
-	    $self->processJob($pipeline);
+	    $self->processJob($pipeline, $name);
 
 	    # We don't want to keep the tcp connections waiting,
 	    # they're more of a priority
@@ -176,6 +176,7 @@ sub runScheduler {
 sub processJob {
     my $self = shift;
     my $pipeline = shift;
+    my $name = shift;
 
     my $task_id = $pipeline->fetch_task_id;
 
@@ -190,7 +191,7 @@ sub processJob {
 	my $timeout = $cfg->{cache_timeout} || 86400;
 	if(time > ($pipeline->last_run + $timeout)) {
 	    $logger->debug("Job has completed and expired, removing: $task_id [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . ']');
-	    $self->delete_job($pipeline);
+	    $self->delete_job($name);
 	}
 
 	# Regardless, we don't need to process completed jobs
