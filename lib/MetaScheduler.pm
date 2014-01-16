@@ -507,7 +507,7 @@ sub alterLogLevel {
     return 1;
 }
 
-sub reloadSchedulers {
+sub refreshSchedulers {
     my $self = shift;
 
     $logger->info("Reloading schedulers");
