@@ -656,7 +656,7 @@ sub overlay_walk_component {
     my $self = shift;
     my $v = shift;
 
-    $self->{logger}->debug("Walking component $v");
+    $self->{logger}->debug("Walking component $v, [" . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
 
     # Is is a sink vertex, or a vertex with no children
     if($self->{g}->is_sink_vertex($v)) {

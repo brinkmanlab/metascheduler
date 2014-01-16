@@ -147,7 +147,7 @@ sub runScheduler {
 	# deal with them one by one for this cycle
 	for my $name ($self->fetch_keys) {
 	    my $pipeline = $self->get_job($name);
-	    $logger->trace("Processing a pipeline $name");
+	    $logger->trace("Processing a pipeline $name, [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . ']');
 
 	    $self->processJob($pipeline, $name);
 
@@ -289,7 +289,7 @@ sub loadJobs {
 	    $logger->error("Error, can not initialize job $row[0] of type $row[1], skipping. [$@]");
 	} else {
 	    my $name = $self->concatName($job->job_type, $job->job_name);
-	    $logger->trace("Finished initializing job $name, saving.");
+	    $logger->trace("Finished initializing job $name, saving. [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . ']');
 	    $self->set_job($name => $pipeline);
 	    $logger->debug("Task saved: " . $pipeline->fetch_task_id . ' ' . $pipeline . " [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . ']');
 	}
