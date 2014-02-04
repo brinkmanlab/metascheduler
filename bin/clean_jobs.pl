@@ -28,7 +28,7 @@ use MetaScheduler::DBISingleton;
 my $scheduler;
 
 MAIN: {
-    my $cfname;
+    my $cfname; my $days; my $logger;
     my $res = GetOptions("config=s" => \$cfname,
                          "days=s" => \$days,
     );
@@ -44,19 +44,20 @@ MAIN: {
     # Get a local copy of the config so we can make a pid file
     my $cfg = $scheduler->getCfg;
 
-    $self->{logger} = Log::Log4perl->get_logger;
+    $logger = Log::Log4perl->get_logger;
 
     my $expiredays = 7;
-    $expire_days ||= $days;
+    $expiredays = $days if($days);
+    $logger->info("Expiring from days: $expiredays\n");
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
 
-    my find_records = $dbi->prepare("SELECT task_id from task WHERE complete_date = DATE_SUB(now(), INTERVAL ? DAYS")
+my $find_records = $dbh->prepare("SELECT task_id from task WHERE complete_date <= DATE_SUB(now(), INTERVAL ? DAY)");
 
-    $find_records->execute($expire_days);
+    $find_records->execute($expiredays);
 
     while(my @rows = $find_records->fetchrow_array) {
-	my $task_id = @row[0];
+	my $task_id = $rows[0];
 	$logger->info("Deleting task_id $task_id");
 	
 	$dbh->do("DELETE FROM mail WHERE task_id = ?", undef, $task_id);
