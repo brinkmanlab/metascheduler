@@ -208,18 +208,41 @@ sub dump_json {
     my $self = shift;
     my $indent = shift;
 
-    my $json = "$indent" . "{\n";
-    $json .= "$indent \"component_id\": \"" . $self->component_id . "\",\n";
-    $json .= "$indent \"component_type\": \"" . $self->component_type . "\",\n";
-    $json .= "$indent \"run_status\": \"" . $self->run_status . "\",\n";
-    $json .= "$indent \"extra_parameters\": \"" . $self->extra_parameters . "\",\n";
-    $json .= "$indent \"qsub_file\": \"" . $self->qsub_file . "\",\n";
-    $json .= "$indent \"qsub_id\": \"" . $self->qsub_id . "\",\n";
-    $json .= "$indent \"start_date\": \"" . $self->start_date . "\",\n";
-    $json .= "$indent \"complete_date\": \"" . $self->complete_date . "\"\n";
-    $json .= "$indent}";
+    my $json_data = $self->component_struct();
+
+    my $json = to_json($json_data, {pretty => 1});
 
     return $json;
+}
+
+sub component_struct {
+    my $self = shift;
+
+    my $json_data;
+
+    $json_data->{component_id} =  $self->component_id;
+    $json_data->{component_type} = $self->component_type;
+    $json_data->{run_status} = $self->run_status;
+    $json_data->{extra_parameters} = $self->extra_parameters;
+    $json_data->{qsub_file} = $self->qsub_file;
+    $json_data->{qsub_id} = $self->qsub_id;
+    $json_data->{start_date} = $self->start_date;
+    $json_data->{complete_date} = $self->complete_date;
+
+    return $json_data;
+
+#    my $json = "$indent" . "{\n";
+#    $json .= "$indent \"component_id\": \"" . $self->component_id . "\",\n";
+#    $json .= "$indent \"component_type\": \"" . $self->component_type . "\",\n";
+#    $json .= "$indent \"run_status\": \"" . $self->run_status . "\",\n";
+#    $json .= "$indent \"extra_parameters\": \"" . $self->extra_parameters . "\",\n";
+#    $json .= "$indent \"qsub_file\": \"" . $self->qsub_file . "\",\n";
+#    $json .= "$indent \"qsub_id\": \"" . $self->qsub_id . "\",\n";
+#    $json .= "$indent \"start_date\": \"" . $self->start_date . "\",\n";
+#    $json .= "$indent \"complete_date\": \"" . $self->complete_date . "\"\n";
+#    $json .= "$indent}";
+
+#    return $json;
 }
 
 1;

@@ -431,6 +431,17 @@ sub dump_components_json {
 
 }
 
+sub component_structs {
+    my $self = shift;
+
+    my @components;
+    foreach my $c (@{$self->components}) {
+	push @components, $c->component_struct();
+    }
+
+    return @components;
+}
+
 # Return a count of all the state types
 
 sub find_all_state {

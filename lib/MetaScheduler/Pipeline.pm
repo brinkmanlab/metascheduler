@@ -916,19 +916,37 @@ sub dump_json {
     # nothing to report
     return unless($job);
 
-    my $json = "{\n";
-    $json .= " \"job_name\": \"" . $job->job_name . "\",\n";
-    $json .= " \"job_type\": \"" . $job->job_type . "\",\n";
-    $json .= " \"task_id\": \""  . $job->task_id  . "\",\n";
-    $json .= " \"run_status\": \"" . $job->run_status . "\",\n";
-    $json .= " \"extra_parameters\": \"" . $job->extra_parameters . "\",\n";
-    $json .= " \"priority\": \"" . $job->priority . "\",\n";
-    $json .= " \"job_scheduler\": \"" . $job->job_scheduler . "\",\n";
-    $json .= " \"submitted_date\": \"" . $job->submitted_date . "\",\n";
-    $json .= " \"start_date\": \"" . $job->start_date . "\",\n";
-    $json .= " \"complete_date\": \"" . $job->complete_date . "\",\n";
-    $json .= " \"components\": " . $job->dump_components_json("\t") . "\n";
-    $json .= "}";
+    my $json_data;
+
+    $json_data->{job_name} = $job->job_name;
+    $json_data->{job_type} = $job->job_type;
+    $json_data->{task_id} = $job->task_id;
+    $json_data->{run_status} = $job->run_status;
+    $json_data->{extra_parameters} = $job->extra_parameters;
+    $json_data->{priority} = $job->priority;
+    $json_data->{job_scheduler} = $job->job_scheduler;
+    $json_data->{submitted_date} = $job->submitted_date;
+    $json_data->{start_date} = $job->start_date;
+    $json_data->{complete_date} = $job->complete_date;
+    $json_data->{components} = $job->component_structs;
+
+    my $json = to_json($json_data, {pretty => 1});
+
+    return ($json, $job->job_type);
+
+#    my $json = "{\n";
+#    $json .= " \"job_name\": \"" . $job->job_name . "\",\n";
+#    $json .= " \"job_type\": \"" . $job->job_type . "\",\n";
+#    $json .= " \"task_id\": \""  . $job->task_id  . "\",\n";
+#    $json .= " \"run_status\": \"" . $job->run_status . "\",\n";
+#    $json .= " \"extra_parameters\": \"" . $job->extra_parameters . "\",\n";
+#    $json .= " \"priority\": \"" . $job->priority . "\",\n";
+#    $json .= " \"job_scheduler\": \"" . $job->job_scheduler . "\",\n";
+#    $json .= " \"submitted_date\": \"" . $job->submitted_date . "\",\n";
+#    $json .= " \"start_date\": \"" . $job->start_date . "\",\n";
+#    $json .= " \"complete_date\": \"" . $job->complete_date . "\",\n";
+#    $json .= " \"components\": " . $job->dump_components_json("\t") . "\n";
+#    $json .= "}";
 
     return ($json, $job->job_type);
 }
