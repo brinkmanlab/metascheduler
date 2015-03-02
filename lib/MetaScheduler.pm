@@ -289,7 +289,7 @@ sub loadJobs {
 	    $job = MetaScheduler::Job->new({task_id => $row[0]});
 	    $pipeline->attach_job($job);
 	    $pipeline->validate_state();
-	    $pipeline->graph();
+#	    $pipeline->graph();
 	    $pipeline->last_run(time);
 	};
 
@@ -299,7 +299,7 @@ sub loadJobs {
 	    my $name = $self->concatName($job->job_type, $job->job_name);
 	    $logger->trace("Finished initializing job $name, saving. [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . ']');
 	    $self->set_job($name => $pipeline);
-	    $logger->debug("Task saved: " . $pipeline->fetch_task_id . ' ' . $pipeline . " [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . ']');
+	    $logger->debug("Task saved: " . $pipeline->fetch_task_id . ' ' . $pipeline->fetch_status . " [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . ']');
 	}
     }
 
