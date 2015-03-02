@@ -406,7 +406,7 @@ sub showJob {
     my $json = '['; 
     my $records = 0;
 
-    for my $name ($self->fetch_keys) {
+    for my $name (sort $self->fetch_keys) {
 	my $pipeline = $self->get_job($name);
 
 	# Fetch the json from the pipeline
