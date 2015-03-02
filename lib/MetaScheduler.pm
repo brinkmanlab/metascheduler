@@ -261,11 +261,11 @@ sub process_request {
 sub initializeMetaScheduler {
     my $self = shift;
     
-    $self->loadJobs();
-
     # Initialize the TCP server
     MetaScheduler::Server->initialize();
     $server =  MetaScheduler::Server->instance;
+
+    $self->loadJobs();
 
 }
 
@@ -301,6 +301,13 @@ sub loadJobs {
 	    $self->set_job($name => $pipeline);
 	    $logger->debug("Task saved: " . $pipeline->fetch_task_id . ' ' . $pipeline->fetch_status . " [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . ']');
 	}
+
+	# We don't want to keep the tcp connections waiting,
+	# they're more of a priority
+	if($server->reqs_waiting(0.1)) {
+	    $server->process_requests($self);
+	}
+
     }
 
 #    foreach my $k ($self->fetch_keys) {
