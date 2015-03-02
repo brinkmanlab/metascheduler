@@ -72,6 +72,13 @@ has schedulers => (
     default => sub { [] },
 );
 
+has 'queued_jobs' => (
+    traits  => ['Array'],
+    is      => 'rw',
+    isa     => 'ArrayRef[Ref]',
+    default => sub { [] },
+);
+
 my $cfg; my $logger; my $server;
 my $sig_int = 0;
 
@@ -119,8 +126,14 @@ sub BUILD {
 	}
     }
 
+    my $fastload = 0;
+    if($args->{fastload}) {
+	$logger->warn("Using fast load");
+	$fastload = $args->{fastload};
+    }
+
     # Find all the running/pending jobs
-    $self->initializeMetaScheduler();
+    $self->initializeMetaScheduler($fastload);
 
 #    foreach my $k ($self->fetch_keys) {
 #	my $p = $self->get_job($k);
@@ -150,6 +163,11 @@ sub runScheduler {
 
 	$logger->trace("In the loop");
 	$logger->info("Jobs being monitored: " . scalar($self->fetch_keys));
+
+	if(my $delayed_job = shift @{ $self->queued_jobs }) {
+	    $logger->warn("Delayed load of job [$delayed_job], loading...");
+	    $self->reloadJob($delayed_job);
+	}
 
 	# We're going to go through the jobs and 
 	# deal with them one by one for this cycle
@@ -260,17 +278,19 @@ sub process_request {
 
 sub initializeMetaScheduler {
     my $self = shift;
+    my $fastload = (@_ ? 1 : 0);
     
     # Initialize the TCP server
     MetaScheduler::Server->initialize();
     $server =  MetaScheduler::Server->instance;
 
-    $self->loadJobs();
+    $self->loadJobs($fastload);
 
 }
 
 sub loadJobs {
     my $self = shift;
+    my $fastload = (@_ ? 1 : 0);
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
     my $pipeline_base = $cfg->{pipelines};
@@ -284,6 +304,12 @@ sub loadJobs {
     while(my @row = $fetch_jobs->fetchrow_array) {
 	$logger->info("Initializing job $row[0] of type $row[1]");
 	my $job; my $pipeline;
+	if($fastload) {
+	    $logger->warn("Stashing away for loading later: task_id: $row[0], job_type: $row[1]");
+	    push @{ $self->queued_jobs }, $row[0];
+	    next;
+	}
+
 	eval {
 	    $pipeline = MetaScheduler::Pipeline->new({pipeline => $pipeline_base . '/' . lc($row[1]) . '.config'});
 	    $job = MetaScheduler::Job->new({task_id => $row[0]});
@@ -345,7 +371,7 @@ sub reloadJob {
 	    $job = MetaScheduler::Job->new({task_id => $row[0]});
 	    $pipeline->attach_job($job);
 	    $pipeline->validate_state();
-	    $pipeline->graph();
+#	    $pipeline->graph();
 	    $pipeline->last_run(time);
 	};
 
@@ -356,7 +382,7 @@ sub reloadJob {
 	    my $name = $self->concatName($job->job_type, $job->job_name);
 	    $logger->trace("Finished initializing job $name, saving.");
 	    $self->set_job($name => $pipeline);
-	    $logger->debug("Task saved: " . $pipeline->fetch_task_id . ' ' . $pipeline . " [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . ']');
+	    $logger->debug("Task saved: " . $pipeline->fetch_task_id . ' ' . $pipeline->fetch_status . " [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . ']');
 	}
     } else {
 	$logger->warn("Job $task_id wasn't found in the database");

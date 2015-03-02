@@ -22,11 +22,12 @@ use lib "../lib";
 use MetaScheduler;
 use MetaScheduler::Server;
 
-my $scheduler;
+my $scheduler; my $fastload;
 
 MAIN: {
     my $cfname;
     my $res = GetOptions("config=s" => \$cfname,
+			 "fastload" => \$fastload,
     );
 
     # Find the config file and make sure we can open it
@@ -35,7 +36,8 @@ MAIN: {
         unless(-f $cfname && -r $cfname);
 
     # Initialize the scheduler
-    $scheduler = MetaScheduler->new({cfg_file => $cfname});
+    $scheduler = MetaScheduler->new({cfg_file => $cfname,
+				     fastload => $fastload});
 
     # Get a local copy of the config so we can make a pid file
     my $cfg = $scheduler->getCfg;
