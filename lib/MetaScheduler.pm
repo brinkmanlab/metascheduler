@@ -149,7 +149,7 @@ sub runScheduler {
     while(!$sig_int) {
 
 	$logger->trace("In the loop");
-	$logger->info("Jobs being monitored: " . scalar($self->ketch_keys));
+	$logger->info("Jobs being monitored: " . scalar($self->fetch_keys));
 
 	# We're going to go through the jobs and 
 	# deal with them one by one for this cycle
