@@ -149,6 +149,7 @@ sub runScheduler {
     while(!$sig_int) {
 
 	$logger->trace("In the loop");
+	$logger->info("Jobs being monitored: " . scalar($self->ketch_keys));
 
 	# We're going to go through the jobs and 
 	# deal with them one by one for this cycle
@@ -195,7 +196,7 @@ sub processJob {
 	# to be pulled from disk
 	my $timeout = $cfg->{cache_timeout} || 86400;
 	if(time > ($pipeline->last_run + $timeout)) {
-	    $logger->debug("Job has completed and expired, removing: $task_id [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . ']');
+	    $logger->warn("Job has completed and expired, removing: $task_id [" . $pipeline->fetch_job_id . '], [' . $pipeline->fetch_job_name . ']');
 	    $self->delete_job($name);
 	}
 
