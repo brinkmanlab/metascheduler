@@ -96,7 +96,7 @@ sub process_requests {
     my $data;
 
     # anything to read or accept?
-    foreach my $client ($sel->can_read(1)) {
+    foreach my $client ($sel->can_read(0.1)) {
 	
 	if($client == $server) {
 	    # accept a new connection
