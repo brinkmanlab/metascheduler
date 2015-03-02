@@ -147,7 +147,7 @@ sub process_requests {
         next unless exists $outbuffer{$client};
 
         $rv = $client->send($outbuffer{$client}, 0);
-        unless (defined $rv) {
+        unless ($rv) {
             # Whine, but move on.
             $logger->warn("I was told I could write, but I can't.");
             next;
