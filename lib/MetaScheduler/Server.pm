@@ -156,6 +156,7 @@ sub process_requests {
             $! == POSIX::EWOULDBLOCK) {
             my $sent = substr($outbuffer{$client}, 0, $rv, '');
 	    $logger->warn("Sent to tcp connection: " . $sent);
+	    $logger->warn("Bytes remaining to send: " . length  $outbuffer{$client});
             delete $outbuffer{$client} unless length $outbuffer{$client};
         } else {
             # Couldn't write all the data, and it wasn't because
