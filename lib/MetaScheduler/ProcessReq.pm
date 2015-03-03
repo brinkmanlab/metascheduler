@@ -45,6 +45,8 @@ my $actions = {
     admin  => 'admin',
     logging => 'logging',
     refresh => 'refresh',
+    timeout => 'cache_timeout',
+    remove => 'remove_job',
 };
 
 my @logging_levels = qw/TRACE DEBUG INFO WARN ERROR FATAL/;
@@ -207,6 +209,36 @@ sub graph {
     }
 
     return (404, $self->makeResStr(404, "Error, graph not found"));
+}
+
+sub cache_timeout {
+    my $self = shift;
+    my $callback = shift;
+    my $args = shift;
+
+    if($args->{timeout}) {
+	my $res = $callback->setTimeout($args->{timeout});
+
+	return (200, $self->makeResStr(200, $res)) if ($res);
+    }
+
+    return (404, $self->makeResStr(404, "Error, timeout setting not found"));
+    
+}
+
+sub remove_job {
+    my $self = shift;
+    my $callback = shift;
+    my $args = shift;
+
+    if($args->{task_id}) {
+	my $res = $callback->removeJob($args->{task_id});
+
+	return (200, $self->makeResStr(200, $res)) if ($res);
+    }
+
+    return (404, $self->makeResStr(404, "Error, timeout setting not found"));
+    
 }
 
 sub admin {

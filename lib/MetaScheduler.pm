@@ -38,7 +38,7 @@ use MetaScheduler::Pipeline;
 use MetaScheduler::Job;
 use MetaScheduler::Authentication;
 use MetaScheduler::ProcessReq;
-use Scalar::Util 'reftype';
+use Scalar::Util qw(reftype looks_like_number);
 use Log::Log4perl;
 
 my $alarm_timeout = 60;
@@ -462,6 +462,48 @@ sub statusJob {
     return 0 unless($pipeline);
 
     return $pipeline->fetch_status;
+}
+
+# Set the amount of time a completed job will stay in the cache
+
+sub setTimeout {
+    my $self = shift;
+    my $timeout = shift;
+
+    if(looks_like_number $timeout) {
+	$logger->warn("Setting COMPLETE cache timeout to $timeout");
+	$cfg->{cache_timeout} = timeout;
+    } else {
+	$logger->error("Doesn't appear to be a number for new cache timeout value: $timeout");
+    }
+
+    return 1;
+
+}
+
+# Remove a job from the cache
+
+sub removeJob {
+    my $self = shift;
+    my $task_id = shift;
+
+    if(looks_like_number $task_id) {
+
+	for my $pipeline ($self->fetch_keys) {
+	    my $job = $self->get_job($pipeline)->fetch_job;
+
+	    if($job->task_id == $task_id) {
+		$logger->warn("Found and removing task_id $task_id from the cache");
+		$self->delete_job($pipeline);
+		return 1;
+	    }
+	}
+    }
+
+    # Task doesn't exist
+    $logger->error("Task $task_id doesn't exist, can't remove it from the cache");
+    return 0;
+
 }
 
 sub alterJob {
