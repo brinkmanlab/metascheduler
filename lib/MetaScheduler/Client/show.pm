@@ -103,6 +103,7 @@ sub printResults {
 	$res = decode_json($json);
     };
     if($@) {
+	print STDERR $json . "\n";
 	die "Error, we can't interpret the results received from the server";
     }
 

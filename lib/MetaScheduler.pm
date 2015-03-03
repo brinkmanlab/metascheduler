@@ -278,7 +278,7 @@ sub process_request {
 
 sub initializeMetaScheduler {
     my $self = shift;
-    my $fastload = (@_ ? 1 : 0);
+    my $fastload = (@_ ? shift : 0);
     
     # Initialize the TCP server
     MetaScheduler::Server->initialize();
@@ -290,7 +290,7 @@ sub initializeMetaScheduler {
 
 sub loadJobs {
     my $self = shift;
-    my $fastload = (@_ ? 1 : 0);
+    my $fastload = (@_ ? shift : 0);
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
     my $pipeline_base = $cfg->{pipelines};

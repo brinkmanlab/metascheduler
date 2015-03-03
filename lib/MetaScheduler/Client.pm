@@ -38,6 +38,7 @@ use Fcntl qw/O_NONBLOCK/;
 #use Fcntl qw/F_GETFL, F_SETFL, O_NONBLOCK/;
 use MetaScheduler::Config;
 use Log::Log4perl qw(get_logger :nowarn);
+use Data::Dumper;
 
 my $logger;
 my $cfg;
@@ -78,6 +79,8 @@ sub send_req {
     $msg .= "\n" unless($msg =~ /\n$/);
     my $length = length $msg;
 
+#    $self->nonblock($handle);
+
     # Make sure the socket is still open and working
     if(! defined $handle->connected) {
 #    if($handle->connected ~~ undef) {
@@ -112,16 +115,21 @@ sub send_req {
 
 	# The message is sent, now we wait for a reply, or until
 	# our alarm goes off
-	while($received !~ /\n$/) {
+	while($received !~ /\n\n$/ && $handle->connected()) {
+#	while($handle->connected()) {
 	    my $data;
 	    # Receive the response and put it in the queue
 	    my $rv = $handle->recv($data, POSIX::BUFSIZ, 0);
+#	    print "rv: $rv\n";
+#	    print Dumper \$rv;
 	    unless(defined($rv)) {
 		$logger->error("We didn't receive anything back on the socket");
 		alarm 0;
 		return undef;
 	    }
 	    $received .= $data;
+#	    $handle->send('', 0);
+	    print "+++++++++++\n\"$data\"\n+++++++\n\n";
 	}
 
 	# We've successfully made our request, clear the alarm
@@ -142,5 +150,17 @@ sub send_req {
     # Success! Return the results
     return $received;
 }
+
+sub nonblock {
+    my $self = shift;
+    my $sock = shift;
+    my $flags;
+
+    $flags = fcntl($sock, F_GETFL, 0)
+	or die "Can't get flags for socket: $!\n";
+    fcntl($sock, F_SETFL, $flags | O_NONBLOCK)
+	or die "Can't make socket nonblocking: $!\n";
+}
+
 
 1;

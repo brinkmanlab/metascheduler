@@ -18,6 +18,8 @@ my $actions = {
     admin  => 'admin',
     logging => 'logging',
     refresh => 'refresh',
+    timeout => 'timeout',
+    remove => 'remove',
 };
 
 use warnings;
