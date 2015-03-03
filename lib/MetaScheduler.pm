@@ -472,7 +472,7 @@ sub setTimeout {
 
     if(looks_like_number $timeout) {
 	$logger->warn("Setting COMPLETE cache timeout to $timeout");
-	$cfg->{cache_timeout} = timeout;
+	$cfg->{cache_timeout} = $timeout;
     } else {
 	$logger->error("Doesn't appear to be a number for new cache timeout value: $timeout");
     }
