@@ -129,7 +129,7 @@ sub send_req {
 	    }
 	    $received .= $data;
 #	    $handle->send('', 0);
-	    print "+++++++++++\n\"$data\"\n+++++++\n\n";
+#	    print "+++++++++++\n\"$data\"\n+++++++\n\n";
 	}
 
 	# We've successfully made our request, clear the alarm
