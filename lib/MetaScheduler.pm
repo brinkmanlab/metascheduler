@@ -443,7 +443,7 @@ sub showJob {
 
 	# Add the record to the list
 	$json .= ',' if($records > 0);
-	$json .= $cur_json . "\n";
+	$json .= $cur_json;
 	$records++;
     }
 
