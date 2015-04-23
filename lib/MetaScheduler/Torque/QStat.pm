@@ -189,7 +189,7 @@ sub parse_record {
 #    print Dumper $job;
 
     # We want to parse out jobs that aren't ours
-    my $prefix = MetaScheduler::Config->config->{torque_prefix} ? MetaScheduler::Config->config->{torque_prefix} : 'MetaScheduler';
+    my $prefix = MetaScheduler::Config->config->{torque_prefix} ? MetaScheduler::Config->config->{torque_prefix} . '_' : 'MetaScheduler_';
     return unless($job->{Job_Name} =~ /^$prefix/);
 
     # Rememberwhen we've last seen this job in the scheduler
