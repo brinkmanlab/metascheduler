@@ -9,6 +9,7 @@ use strict;
 use Cwd qw(abs_path getcwd);
 use Getopt::Long;
 use Log::Log4perl;
+use File::Path qw(remove_tree);
 
 # Set connection information here
 my $host = 'controlbk';
@@ -25,7 +26,7 @@ use lib "../lib";
 use MetaScheduler;
 use MetaScheduler::DBISingleton;
 
-my $scheduler;
+my $scheduler; my $cfg;
 
 MAIN: {
     my $cfname; my $days; my $logger;
@@ -42,7 +43,7 @@ MAIN: {
     $scheduler = MetaScheduler->new({cfg_file => $cfname});
 
     # Get a local copy of the config so we can make a pid file
-    my $cfg = $scheduler->getCfg;
+    $cfg = $scheduler->getCfg;
 
     $logger = Log::Log4perl->get_logger;
 
@@ -52,7 +53,7 @@ MAIN: {
 
     my $dbh = MetaScheduler::DBISingleton->dbh;
 
-my $find_records = $dbh->prepare("SELECT task_id from task WHERE complete_date <= DATE_SUB(now(), INTERVAL ? DAY)");
+my $find_records = $dbh->prepare("SELECT task_id from task WHERE submitted_date <= DATE_SUB(now(), INTERVAL ? DAY)");
 
     $find_records->execute($expiredays);
 
@@ -60,6 +61,12 @@ my $find_records = $dbh->prepare("SELECT task_id from task WHERE complete_date <
 	my $task_id = $rows[0];
 	$logger->info("Deleting task_id $task_id");
 	
+        $jobdir = $cfg->{jobs_dir} . '/' . $task_id;
+        if(-d $jobdir) {
+            $logger->info("Purging job dir $jobdir");
+            remove_tree($jobdir);
+        }
+
 	$dbh->do("DELETE FROM mail WHERE task_id = ?", undef, $task_id);
 	$dbh->do("DELETE FROM component WHERE task_id = ?", undef, $task_id);
 	$dbh->do("DELETE FROM task WHERE task_id = ?", undef, $task_id);
