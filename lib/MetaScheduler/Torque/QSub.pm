@@ -28,14 +28,27 @@ sub submit_job {
     $job_dir =~ s/\/\//\//g;
     $qsub_file =~ s/\/\//\//g;
 
+    my $qsub_uid = (stat $filename)[4];
+    my $qsub_user = (getpwuid $qsub_uid)[0];
+
     # Prepend MetaScheduler_ so we can find our
     # jobs later
-    $name = 'MetaScheduler_' . $name;
+    my $prefix = MetaScheduler::Config->config->{torque_prefix} ? MetaScheduler::Config->config->{torque_prefix} . '_' : 'MetaScheduler_';
+    
+    $name = $prefix . $name;
 
     my $cmd = MetaScheduler::Config->config->{torque_qsub}
-              . " -d $job_dir -N $name $qsub_file";
+    . " -d $job_dir -N $name ";
 
-#    $logger->debug("Submitting job $cmd -d $job_dir $qsub_file");
+    # If we've been told to use proxy_user, tell qsub what user to run the
+    # submission as, to work Metascheduler user must have Manager access on
+    # the Torque server
+    if(MetaScheduler::Config->config->{proxy_user}) {
+	$cmd .= "-P $qsub_user ";
+    }
+
+    $cmd .= $qsub_file;
+
     $logger->debug("Submitting job $cmd");
 
     open(CMD, '-|', $cmd);
