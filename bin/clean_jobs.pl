@@ -23,7 +23,7 @@ sub mypath { return $path; }
 };
 
 use lib "../lib";
-use MetaScheduler;
+use MetaScheduler::Config;
 use MetaScheduler::DBISingleton;
 
 my $scheduler; my $cfg;
@@ -40,11 +40,22 @@ MAIN: {
         unless(-f $cfname && -r $cfname);
 
     # Initialize the scheduler
-    $scheduler = MetaScheduler->new({cfg_file => $cfname});
+    MetaScheduler::Config->initialize({cfg_file => $cfname });
+#    $scheduler = MetaScheduler->new({cfg_file => $cfname});
 
     # Get a local copy of the config so we can make a pid file
-    $cfg = $scheduler->getCfg;
+    $cfg = MetaScheduler::Config->config;
 
+    MetaScheduler::DBISingleton->initialize({dsn => $cfg->{'dsn'}, 
+					     user => $cfg->{'dbuser'}, 
+					     pass => $cfg->{'dbpass'} });
+
+    # Initialize the logging
+    my $log_cfg = $cfg->{'logger_conf'};
+    die "Error, can't access logger_conf $log_cfg"
+    unless(-f $log_cfg && -r $log_cfg);
+
+    Log::Log4perl::init($log_cfg);
     $logger = Log::Log4perl->get_logger;
 
     my $expiredays = 7;
@@ -61,7 +72,7 @@ my $find_records = $dbh->prepare("SELECT task_id from task WHERE submitted_date 
 	my $task_id = $rows[0];
 	$logger->info("Deleting task_id $task_id");
 	
-        $jobdir = $cfg->{jobs_dir} . '/' . $task_id;
+        my $jobdir = $cfg->{jobs_dir} . '/' . $task_id;
         if(-d $jobdir) {
             $logger->info("Purging job dir $jobdir");
             remove_tree($jobdir);
