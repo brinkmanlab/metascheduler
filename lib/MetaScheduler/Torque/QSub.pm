@@ -28,7 +28,7 @@ sub submit_job {
     $job_dir =~ s/\/\//\//g;
     $qsub_file =~ s/\/\//\//g;
 
-    my $qsub_uid = (stat $filename)[4];
+    my $qsub_uid = (stat $qsub_file)[4];
     my $qsub_user = (getpwuid $qsub_uid)[0];
 
     # Prepend MetaScheduler_ so we can find our
