@@ -47,6 +47,11 @@ sub submit_job {
 	$cmd .= "-P $qsub_user ";
     }
 
+    if(MetaScheduler::Config->config->{walltime}) {
+	$cmd .= "-l walltime=" . MetaScheduler::Config->config->{walltime} . ' ';
+    }
+
+
     $cmd .= $qsub_file;
 
     $logger->debug("Submitting job $cmd");
