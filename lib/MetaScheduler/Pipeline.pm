@@ -550,7 +550,7 @@ sub update_job_status {
 
     # Now we're in to the weird states, either stuck or
     # just nothing happens to be in the queue
-    $self->{logger}->error("We seem to be stuck in this job, that's not good. Job: [" . $self->{job}->task_id . '], [' . $self->job_id . '], [' . $self->{job}->job_name . ']');
+    $self->{logger}->error("We seem to be stuck in this job, that's not good. Job: [" . $self->{job}->task_id . '], [' . $self->{job}->job_id . '], [' . $self->{job}->job_name . ']');
 
 }
 
